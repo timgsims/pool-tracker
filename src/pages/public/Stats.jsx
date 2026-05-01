@@ -73,7 +73,6 @@ function computeOverallRecords(allStats, playerIds, matches, h2hData) {
   const busiestDay = busiestEntry ? { date: busiestEntry[0], count: busiestEntry[1] } : null
 
   const rarest = [...h2hData]
-    .filter(r => r.matches_played >= 2)
     .sort((a, b) => a.matches_played - b.matches_played)[0] ?? null
 
   return { mostId, leastId, longestWin, longestLoss, busiestDay, rarest }
