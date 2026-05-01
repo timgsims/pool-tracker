@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { formatDateShort } from '../../lib/dateUtils'
+import { formatDateShort, timeAgo } from '../../lib/dateUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
@@ -114,6 +114,8 @@ export default function PlayerProfile() {
   const [monthlyForm, setMonthlyForm] = useState([])
   const [h2h, setH2H] = useState([])
   const [nameMap, setNameMap] = useState({})
+  const [lastTen, setLastTen] = useState([])
+  const [favOpponent, setFavOpponent] = useState(null)
 
   const canUpload = isAdmin || linkedPlayerId === id
 
@@ -153,8 +155,18 @@ export default function PlayerProfile() {
       setStreak(computeStreak(matches, id))
       setComebacks(computeComebacks(matches, id))
       setMonthlyForm(buildMonthlyForm(matches, id))
-      setH2H(computeH2H(matches, id))
+      const h2hData = computeH2H(matches, id)
+      setH2H(h2hData)
       setNameMap(buildDisplayNames(allPlayers ?? []))
+
+      const ten = matches.filter(m => m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
+      setLastTen(ten)
+
+      const fav = h2hData
+        .filter(o => o.wins + o.losses >= 3)
+        .sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
+      setFavOpponent(fav)
+
       setLoading(false)
     }
     load()
@@ -266,6 +278,63 @@ export default function PlayerProfile() {
               label="Total Matches"
               value={allMatches.filter(m => m.winner).length}
             />
+            {allMatches[0]?.played_at && (
+              <StatCard
+                label="Last Match"
+                value={timeAgo(allMatches[0].played_at)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Last 10 results */}
+      {lastTen.length > 0 && (
+        <div>
+          <p className="section-header">Last {lastTen.length} Results</p>
+          <div className="card p-4 flex gap-1.5 flex-wrap">
+            {lastTen.map((r, i) => (
+              <span
+                key={i}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${
+                  r === 'W'
+                    ? 'bg-green-900/50 text-pool-win border border-green-800/60'
+                    : 'bg-red-900/50 text-pool-loss border border-red-900/60'
+                }`}
+              >
+                {r}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Favourite opponent */}
+      {favOpponent && (
+        <div>
+          <p className="section-header">Favourite Opponent</p>
+          <div className="card p-4 flex items-center justify-between gap-4">
+            <div>
+              <Link
+                to={`/player/${favOpponent.id}`}
+                className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+              >
+                {nameMap[favOpponent.id] ?? favOpponent.name}
+              </Link>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {favOpponent.wins + favOpponent.losses} matches played
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="font-mono text-sm font-semibold">
+                <span className="win-text">{favOpponent.wins}W</span>
+                <span className="text-slate-600 mx-1">–</span>
+                <span className="loss-text">{favOpponent.losses}L</span>
+              </p>
+              <p className="text-pool-accent font-bold text-lg tabular-nums">
+                {Math.round((favOpponent.wins / (favOpponent.wins + favOpponent.losses)) * 100)}%
+              </p>
+            </div>
           </div>
         </div>
       )}

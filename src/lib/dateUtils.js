@@ -32,6 +32,19 @@ export function isoToNZLocal(isoString) {
     .replace(' ', 'T')
 }
 
+// Human-readable "time since" string
+export function timeAgo(iso) {
+  if (!iso) return null
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 30) return `${days} days ago`
+  const months = Math.floor(days / 30.44)
+  if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`
+  const years = Math.floor(days / 365.25)
+  return `${years} year${years !== 1 ? 's' : ''} ago`
+}
+
 export function nzLocalToISO(localStr) {
   // Temporarily treat the NZ local time as if it were UTC
   const fakeUTC = new Date(localStr + ':00Z')
