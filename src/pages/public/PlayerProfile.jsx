@@ -292,19 +292,22 @@ export default function PlayerProfile() {
       {lastTen.length > 0 && (
         <div>
           <p className="section-header">Last {lastTen.length} Results</p>
-          <div className="card p-4 flex gap-1.5 flex-wrap">
-            {lastTen.map((r, i) => (
-              <span
-                key={i}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${
-                  r === 'W'
-                    ? 'bg-green-900/50 text-pool-win border border-green-800/60'
-                    : 'bg-red-900/50 text-pool-loss border border-red-900/60'
-                }`}
-              >
-                {r}
-              </span>
-            ))}
+          <div className="card p-4">
+            <div className="flex gap-1">
+              {[...lastTen].reverse().map((r, i) => (
+                <span
+                  key={i}
+                  className={`flex-1 h-7 flex items-center justify-center rounded text-xs font-bold min-w-0 ${
+                    r === 'W'
+                      ? 'bg-green-900/50 text-pool-win border border-green-800/60'
+                      : 'bg-red-900/50 text-pool-loss border border-red-900/60'
+                  }`}
+                >
+                  {r}
+                </span>
+              ))}
+            </div>
+            <p className="text-slate-700 text-xs mt-2 text-center">older ← · → more recent</p>
           </div>
         </div>
       )}
