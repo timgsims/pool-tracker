@@ -24,7 +24,7 @@ export default function Navbar() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <img
-            src={`${import.meta.env.BASE_URL}logo-white.png`}
+            src={`${import.meta.env.BASE_URL}icon.png`}
             alt="Pool Tracker"
             className="h-8 w-auto"
           />

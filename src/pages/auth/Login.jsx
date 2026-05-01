@@ -73,7 +73,7 @@ export default function Login() {
           <img
             src={`${import.meta.env.BASE_URL}logo-white.png`}
             alt="Pool Tracker"
-            className="h-16 w-auto mx-auto"
+            className="h-48 w-auto mx-auto"
           />
           <h1 className="text-2xl font-bold text-slate-100 mt-3">{title}</h1>
           <p className="text-slate-500 text-sm mt-1">{subtitle}</p>
