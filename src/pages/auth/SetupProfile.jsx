@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function SetupProfile() {
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { user, refreshRole } = useAuth()
@@ -12,11 +13,12 @@ export default function SetupProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name.trim()) return
+    const fullName = `${firstName.trim()} ${lastName.trim()}`
+    if (!firstName.trim() || !lastName.trim()) return
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.rpc('complete_signup', { player_name: name.trim() })
+    const { error } = await supabase.rpc('complete_signup', { player_name: fullName })
     if (error) {
       setError(error.message)
       setLoading(false)
@@ -32,30 +34,47 @@ export default function SetupProfile() {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <span className="text-5xl">⚫</span>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-white.png`}
+            alt="Pool Tracker"
+            className="h-16 w-auto mx-auto"
+          />
           <h1 className="text-2xl font-bold text-slate-100 mt-3">One last thing</h1>
           <p className="text-slate-500 text-sm mt-2">
-            What name should appear on the leaderboard?
+            Enter your name as it will appear on the leaderboard.
           </p>
         </div>
 
         <div className="card p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="label">Your display name</label>
-              <input
-                autoFocus
-                className="input"
-                placeholder="e.g. Tim"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                maxLength={30}
-                required
-              />
-              <p className="text-slate-600 text-xs mt-1.5">
-                Signed in as {user?.email}
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">First name</label>
+                <input
+                  autoFocus
+                  className="input"
+                  placeholder="Tim"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  maxLength={30}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Last name</label>
+                <input
+                  className="input"
+                  placeholder="Stewart"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  maxLength={30}
+                  required
+                />
+              </div>
             </div>
+            <p className="text-slate-600 text-xs">
+              Signed in as {user?.email}
+            </p>
 
             {error && (
               <div className="text-sm text-red-400 bg-red-950/40 border border-red-900/50 rounded-lg px-3 py-2.5">
@@ -66,7 +85,7 @@ export default function SetupProfile() {
             <button
               type="submit"
               className="btn-primary w-full"
-              disabled={loading || !name.trim()}
+              disabled={loading || !firstName.trim() || !lastName.trim()}
             >
               {loading ? 'Setting up…' : 'Get started'}
             </button>

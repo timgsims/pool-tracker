@@ -8,6 +8,7 @@ import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort } from '../../lib/dateUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
+import Avatar from '../../components/ui/Avatar'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -32,7 +33,6 @@ function TabButton({ active, onClick, children }) {
   )
 }
 
-// Returns "W-L-W" style string from a player's perspective across sorted games
 function gameSeq(games, playerId) {
   if (!games?.length) return null
   return [...games]
@@ -41,7 +41,6 @@ function gameSeq(games, playerId) {
     .join('-')
 }
 
-// Compute current streak for every player from all-time matches (sorted desc)
 function computeAllStreaks(allTimeMatches, playerIds) {
   const streaks = {}
   for (const pid of playerIds) {
@@ -97,7 +96,7 @@ function ChartTooltip({ active, payload, label }) {
 
 // ─── Leaderboard tab ──────────────────────────────────────────────────────────
 
-function LeaderboardTab({ standings, playerStreaks }) {
+function LeaderboardTab({ standings, playerStreaks, playerAvatars }) {
   if (standings.length === 0) {
     return (
       <EmptyState
@@ -145,8 +144,13 @@ function LeaderboardTab({ standings, playerStreaks }) {
                   <td>
                     <Link
                       to={`/player/${row.player_id}`}
-                      className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+                      className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
                     >
+                      <Avatar
+                        name={row.player_name}
+                        src={playerAvatars[row.player_id]}
+                        size="sm"
+                      />
                       {row.player_name}
                     </Link>
                   </td>
@@ -442,11 +446,12 @@ export default function Home() {
   const [h2hData, setH2hData] = useState([])
   const [yearMatches, setYearMatches] = useState([])
   const [playerStreaks, setPlayerStreaks] = useState({})
+  const [playerAvatars, setPlayerAvatars] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [{ data: stats }, { data: matches }, { data: h2h }, { data: yearM }, { data: allTime }] = await Promise.all([
+      const [{ data: stats }, { data: matches }, { data: h2h }, { data: yearM }, { data: allTime }, { data: players }] = await Promise.all([
         supabase
           .from('player_season_stats')
           .select('*')
@@ -456,8 +461,8 @@ export default function Home() {
           .from('matches')
           .select(`
             id, played_at, format,
-            player1:player1_id(id, name),
-            player2:player2_id(id, name),
+            player1:player1_id(id, name, avatar_url),
+            player2:player2_id(id, name, avatar_url),
             winner:winner_id(id, name),
             games(game_number, winner_id)
           `)
@@ -481,6 +486,10 @@ export default function Home() {
           .select('id, played_at, player1_id, player2_id, winner_id')
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: false }),
+
+        supabase
+          .from('players')
+          .select('id, avatar_url'),
       ])
 
       const sorted = [...(stats ?? [])].sort((a, b) => {
@@ -490,12 +499,14 @@ export default function Home() {
 
       const playerIds = sorted.map(s => s.player_id)
       const streaks = computeAllStreaks(allTime ?? [], playerIds)
+      const avatars = Object.fromEntries((players ?? []).map(p => [p.id, p.avatar_url]))
 
       setStandings(sorted)
       setRecentMatches(matches ?? [])
       setH2hData(h2h ?? [])
       setYearMatches(yearM ?? [])
       setPlayerStreaks(streaks)
+      setPlayerAvatars(avatars)
       setLoading(false)
     }
     load()
@@ -526,7 +537,13 @@ export default function Home() {
       </div>
 
       {/* Tab content */}
-      {tab === 'leaderboard' && <LeaderboardTab standings={standings} playerStreaks={playerStreaks} />}
+      {tab === 'leaderboard' && (
+        <LeaderboardTab
+          standings={standings}
+          playerStreaks={playerStreaks}
+          playerAvatars={playerAvatars}
+        />
+      )}
       {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} />}
       {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} />}
 
@@ -561,9 +578,21 @@ export default function Home() {
                         {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
                         {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                         <span className={`font-semibold truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{left?.name}</span>
+                        <Avatar
+                          name={left?.name}
+                          src={left?.avatar_url}
+                          size="xs"
+                          className="shrink-0"
+                        />
                       </div>
                       <span className="text-slate-600 text-xs shrink-0 w-5 text-center">vs</span>
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <Avatar
+                          name={right?.name}
+                          src={right?.avatar_url}
+                          size="xs"
+                          className="shrink-0"
+                        />
                         <span className={`font-semibold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{right?.name}</span>
                         {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                         {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}

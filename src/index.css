@@ -5,6 +5,7 @@
 @layer base {
   html {
     @apply bg-pool-bg text-slate-100;
+    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 

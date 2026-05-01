@@ -9,6 +9,8 @@ export default function AdminPlayers() {
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
 
   const load = () =>
     supabase
@@ -34,6 +36,18 @@ export default function AdminPlayers() {
 
   const toggleActive = async (id, current) => {
     await supabase.from('players').update({ active: !current }).eq('id', id)
+    load()
+  }
+
+  const startEdit = (player) => {
+    setEditingId(player.id)
+    setEditName(player.name)
+  }
+
+  const saveEdit = async (id) => {
+    if (!editName.trim()) return
+    await supabase.from('players').update({ name: editName.trim() }).eq('id', id)
+    setEditingId(null)
     load()
   }
 
@@ -72,29 +86,72 @@ export default function AdminPlayers() {
 
       <div className="card overflow-hidden">
         <table className="table-base">
+          <colgroup>
+            <col />
+            <col className="w-24" />
+            <col className="w-44" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="pl-5">Name</th>
-              <th>Status</th>
+              <th className="pl-5 text-left">Name</th>
+              <th className="text-left">Status</th>
               <th className="text-right pr-5">Actions</th>
             </tr>
           </thead>
           <tbody>
             {players.map(p => (
               <tr key={p.id}>
-                <td className="pl-5 font-medium text-slate-200">{p.name}</td>
-                <td>
+                <td className="pl-5 font-medium text-slate-200">
+                  {editingId === p.id ? (
+                    <input
+                      autoFocus
+                      className="input py-1 text-sm"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit(p.id)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                    />
+                  ) : p.name}
+                </td>
+                <td className="text-left">
                   {p.active
                     ? <span className="badge-green">Active</span>
                     : <span className="badge-gray">Inactive</span>}
                 </td>
-                <td className="text-right pr-5">
-                  <button
-                    onClick={() => toggleActive(p.id, p.active)}
-                    className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
-                  >
-                    {p.active ? 'Deactivate' : 'Reactivate'}
-                  </button>
+                <td className="text-right pr-5 space-x-3">
+                  {editingId === p.id ? (
+                    <>
+                      <button
+                        onClick={() => saveEdit(p.id)}
+                        className="text-pool-accent hover:text-pool-accent-dim text-xs transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startEdit(p)}
+                        className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => toggleActive(p.id, p.active)}
+                        className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                      >
+                        {p.active ? 'Deactivate' : 'Reactivate'}
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

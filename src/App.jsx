@@ -12,6 +12,7 @@ import PlayerProfile from './pages/public/PlayerProfile'
 // Auth
 import Login from './pages/auth/Login'
 import SetupProfile from './pages/auth/SetupProfile'
+import ResetPassword from './pages/auth/ResetPassword'
 
 // Player pages
 import EnterResult from './pages/player/EnterResult'
@@ -24,15 +25,19 @@ import AdminUsers from './pages/admin/Users'
 import AdminMatches from './pages/admin/Matches'
 import AdminTournaments from './pages/admin/Tournaments'
 
-// Redirects non-admin users to profile setup if they haven't set a display name yet
 function ProfileSetupGuard({ children }) {
-  const { isAuthenticated, linkedPlayerId, role, loading } = useAuth()
+  const { isAuthenticated, linkedPlayerId, role, loading, recoveryMode } = useAuth()
   const location = useLocation()
 
   const needsSetup = isAuthenticated && role !== null && !linkedPlayerId && role !== 'admin'
   const onSetupPage = location.pathname === '/setup-profile'
+  const onResetPage = location.pathname === '/auth/reset-password'
 
-  if (!loading && needsSetup && !onSetupPage) {
+  if (!loading && recoveryMode && !onResetPage) {
+    return <Navigate to="/auth/reset-password" replace />
+  }
+
+  if (!loading && needsSetup && !onSetupPage && !onResetPage) {
     return <Navigate to="/setup-profile" replace />
   }
 
@@ -53,6 +58,7 @@ export default function App() {
               <Route path="player/:id" element={<PlayerProfile />} />
               <Route path="login" element={<Login />} />
               <Route path="setup-profile" element={<SetupProfile />} />
+              <Route path="auth/reset-password" element={<ResetPassword />} />
 
               {/* Player routes — requires player or admin role */}
               <Route

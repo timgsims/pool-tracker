@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import Avatar from '../ui/Avatar'
 
 const NAV_LINKS = [
   { to: '/', label: 'Leaderboard', end: true },
@@ -8,7 +9,7 @@ const NAV_LINKS = [
 ]
 
 export default function Navbar() {
-  const { isAuthenticated, isAdmin, isPlayer, signOut } = useAuth()
+  const { isAuthenticated, isAdmin, isPlayer, signOut, linkedPlayerName, linkedPlayerAvatar } = useAuth()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
@@ -22,10 +23,11 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <span className="text-pool-accent text-lg leading-none">⚫</span>
-          <span className="font-bold text-slate-100 hidden sm:block text-sm tracking-wide">
-            POOL TRACKER
-          </span>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-white.png`}
+            alt="Pool Tracker"
+            className="h-8 w-auto"
+          />
         </Link>
 
         {/* Nav links */}
@@ -62,12 +64,17 @@ export default function Navbar() {
                   Admin
                 </Link>
               )}
-              <button
-                onClick={handleSignOut}
-                className="text-slate-600 hover:text-slate-400 text-xs transition-colors px-2"
-              >
-                Sign out
-              </button>
+              <div className="flex items-center gap-2">
+                {linkedPlayerName && (
+                  <Avatar name={linkedPlayerName} src={linkedPlayerAvatar} size="sm" />
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="text-slate-600 hover:text-slate-400 text-xs transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
             </>
           ) : (
             <Link

@@ -6,8 +6,9 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
-  const [roleData, setRoleData] = useState(null) // { role, player_id }
+  const [roleData, setRoleData] = useState(null) // { role, player_id, player: { name } }
   const [loading, setLoading] = useState(true)
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   const fetchRole = useCallback(async (userId) => {
     if (!userId) {
@@ -16,7 +17,7 @@ export function AuthProvider({ children }) {
     }
     const { data } = await supabase
       .from('user_roles')
-      .select('role, player_id')
+      .select('role, player_id, player:player_id(name, avatar_url)')
       .eq('user_id', userId)
       .single()
     setRoleData(data ?? null)
@@ -29,9 +30,14 @@ export function AuthProvider({ children }) {
       fetchRole(session?.user?.id).finally(() => setLoading(false))
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true)
+      } else if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setRecoveryMode(false)
+      }
       fetchRole(session?.user?.id)
     })
 
@@ -50,6 +56,8 @@ export function AuthProvider({ children }) {
 
   const role = roleData?.role ?? null
   const linkedPlayerId = roleData?.player_id ?? null
+  const linkedPlayerName = roleData?.player?.name ?? null
+  const linkedPlayerAvatar = roleData?.player?.avatar_url ?? null
   const isAdmin = role === 'admin'
   const isPlayer = role === 'player' || role === 'admin'
   const isAuthenticated = !!session
@@ -60,10 +68,13 @@ export function AuthProvider({ children }) {
       user,
       role,
       linkedPlayerId,
+      linkedPlayerName,
+      linkedPlayerAvatar,
       loading,
       isAdmin,
       isPlayer,
       isAuthenticated,
+      recoveryMode,
       signIn,
       signUp,
       signOut,

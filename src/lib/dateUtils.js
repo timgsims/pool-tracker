@@ -24,6 +24,14 @@ export function nowNZLocal() {
 
 // Interprets a datetime-local string ("YYYY-MM-DDTHH:MM") as NZ time and returns a UTC ISO string.
 // Without this, if the device clock is UTC the entered time would be saved 12-13 hours off.
+// Converts a UTC ISO string to "YYYY-MM-DDTHH:MM" in NZ local time — for populating datetime-local inputs
+export function isoToNZLocal(isoString) {
+  return new Date(isoString)
+    .toLocaleString('sv-SE', { timeZone: TZ })
+    .slice(0, 16)
+    .replace(' ', 'T')
+}
+
 export function nzLocalToISO(localStr) {
   // Temporarily treat the NZ local time as if it were UTC
   const fakeUTC = new Date(localStr + ':00Z')

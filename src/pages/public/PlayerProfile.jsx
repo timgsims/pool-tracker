@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 import { formatDateShort } from '../../lib/dateUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
+import Avatar from '../../components/ui/Avatar'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -96,17 +98,21 @@ function BarTooltip({ active, payload, label }) {
 
 export default function PlayerProfile() {
   const { id } = useParams()
+  const { isAdmin, linkedPlayerId } = useAuth()
   const [player, setPlayer] = useState(null)
   const [stats, setStats] = useState(null)
   const [allMatches, setAllMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef(null)
 
-  // Derived stats computed from allMatches
   const [streak, setStreak] = useState({ type: null, count: 0 })
   const [comebacks, setComebacks] = useState(0)
   const [monthlyForm, setMonthlyForm] = useState([])
   const [h2h, setH2H] = useState([])
+
+  const canUpload = isAdmin || linkedPlayerId === id
 
   useEffect(() => {
     async function load() {
@@ -148,6 +154,27 @@ export default function PlayerProfile() {
     load()
   }, [id])
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(id, file, { upsert: true, contentType: file.type })
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(id)
+      await supabase.from('players').update({ avatar_url: publicUrl }).eq('id', id)
+      setPlayer(prev => ({ ...prev, avatar_url: publicUrl }))
+    } catch (err) {
+      console.error('Avatar upload failed:', err.message)
+    } finally {
+      setUploadingAvatar(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   if (loading) return <LoadingSpinner />
   if (notFound) return (
     <div className="text-center py-16">
@@ -161,8 +188,32 @@ export default function PlayerProfile() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors text-sm">←</Link>
+
+        {/* Avatar with optional upload */}
+        <div className="relative group">
+          <Avatar name={player.name} src={player.avatar_url} size="xl" />
+          {canUpload && (
+            <>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium disabled:cursor-wait"
+              >
+                {uploadingAvatar ? '…' : 'Change'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </>
+          )}
+        </div>
+
         <div>
           <p className="section-header mb-0">Player Profile</p>
           <h1 className="page-title">{player.name}</h1>
@@ -234,6 +285,12 @@ export default function PlayerProfile() {
           <p className="section-header">Head to Head</p>
           <div className="card overflow-hidden">
             <table className="table-base">
+              <colgroup>
+                <col />
+                <col className="w-12" />
+                <col className="w-12" />
+                <col className="w-20" />
+              </colgroup>
               <thead>
                 <tr>
                   <th className="pl-5 text-left">Opponent</th>

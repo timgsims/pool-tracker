@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
+
+const RESET_REDIRECT = `${window.location.origin}${import.meta.env.VITE_BASE_PATH || '/'}`
 
 export default function Login() {
-  const [mode, setMode] = useState('signin')
+  const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -19,8 +22,8 @@ export default function Login() {
     if (isAuthenticated) navigate(from, { replace: true })
   }, [isAuthenticated, navigate, from])
 
-  const switchMode = () => {
-    setMode(m => m === 'signin' ? 'signup' : 'signin')
+  const switchMode = (newMode) => {
+    setMode(newMode)
     setError('')
     setMessage('')
   }
@@ -35,10 +38,17 @@ export default function Login() {
       if (mode === 'signin') {
         const { error } = await signIn(email, password)
         if (error) throw error
-      } else {
+      } else if (mode === 'signup') {
         const { error } = await signUp(email, password)
         if (error) throw error
         setMessage('Account created — check your email to confirm, then sign in.')
+        setMode('signin')
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: RESET_REDIRECT,
+        })
+        if (error) throw error
+        setMessage('Reset link sent — check your email.')
         setMode('signin')
       }
     } catch (err) {
@@ -48,24 +58,27 @@ export default function Login() {
     }
   }
 
+  const title = mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset password'
+  const subtitle = mode === 'signin'
+    ? 'Sign in to enter match results'
+    : mode === 'signup'
+    ? 'Request access to enter results'
+    : "We'll email you a reset link"
+
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
 
-        {/* Header */}
         <div className="text-center mb-8">
-          <span className="text-5xl">⚫</span>
-          <h1 className="text-2xl font-bold text-slate-100 mt-3">
-            {mode === 'signin' ? 'Welcome back' : 'Create account'}
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {mode === 'signin'
-              ? 'Sign in to enter match results'
-              : 'Request access to enter results'}
-          </p>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-white.png`}
+            alt="Pool Tracker"
+            className="h-16 w-auto mx-auto"
+          />
+          <h1 className="text-2xl font-bold text-slate-100 mt-3">{title}</h1>
+          <p className="text-slate-500 text-sm mt-1">{subtitle}</p>
         </div>
 
-        {/* Form card */}
         <div className="card p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -82,19 +95,32 @@ export default function Login() {
               />
             </div>
 
-            <div>
-              <label className="label">Password</label>
-              <input
-                type="password"
-                className="input"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
-                required
-                minLength={6}
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              />
-            </div>
+            {mode !== 'forgot' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="label mb-0">Password</label>
+                  {mode === 'signin' && (
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot')}
+                      className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  className="input"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
+                  required
+                  minLength={6}
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                />
+              </div>
+            )}
 
             {error && (
               <div className="text-sm text-red-400 bg-red-950/40 border border-red-900/50 rounded-lg px-3 py-2.5">
@@ -111,16 +137,29 @@ export default function Login() {
             <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
               {loading
                 ? 'Please wait…'
-                : mode === 'signin' ? 'Sign in' : 'Create account'}
+                : mode === 'signin' ? 'Sign in'
+                : mode === 'signup' ? 'Create account'
+                : 'Send reset link'}
             </button>
           </form>
 
-          <div className="mt-5 text-center border-t border-pool-border pt-4">
-            <button onClick={switchMode} className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
-              {mode === 'signin'
-                ? "Don't have an account? Sign up"
-                : 'Already have an account? Sign in'}
-            </button>
+          <div className="mt-5 text-center border-t border-pool-border pt-4 space-y-2">
+            {mode !== 'signin' && (
+              <button
+                onClick={() => switchMode('signin')}
+                className="text-slate-500 hover:text-slate-300 text-sm transition-colors block w-full"
+              >
+                Back to sign in
+              </button>
+            )}
+            {mode === 'signin' && (
+              <button
+                onClick={() => switchMode('signup')}
+                className="text-slate-500 hover:text-slate-300 text-sm transition-colors block w-full"
+              >
+                Don't have an account? Sign up
+              </button>
+            )}
           </div>
         </div>
 
