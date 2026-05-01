@@ -18,10 +18,12 @@ export default function SetupProfile() {
   const { user, refreshRole } = useAuth()
   const navigate = useNavigate()
 
+  const toProperCase = s => s.trim().replace(/\b\w/g, c => c.toUpperCase())
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const fullName = `${firstName.trim()} ${lastName.trim()}`
     if (!firstName.trim() || !lastName.trim()) return
+    const fullName = `${toProperCase(firstName)} ${toProperCase(lastName)}`
     setLoading(true)
     setError('')
 
@@ -65,7 +67,7 @@ export default function SetupProfile() {
                   className="input"
                   placeholder="Tim"
                   value={firstName}
-                  onChange={e => setFirstName(e.target.value)}
+                  onChange={e => setFirstName(e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1))}
                   maxLength={30}
                   required
                 />
@@ -76,7 +78,7 @@ export default function SetupProfile() {
                   className="input"
                   placeholder="Stewart"
                   value={lastName}
-                  onChange={e => setLastName(e.target.value)}
+                  onChange={e => setLastName(e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1))}
                   maxLength={30}
                   required
                 />

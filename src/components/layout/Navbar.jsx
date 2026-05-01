@@ -6,6 +6,7 @@ import Avatar from '../ui/Avatar'
 const NAV_LINKS = [
   { to: '/', label: 'Leaderboard', end: true },
   { to: '/matches', label: 'Matches' },
+  { to: '/players', label: 'Players' },
   { to: '/stats', label: 'Stats' },
   { to: '/tournaments', label: 'Tournaments' },
 ]

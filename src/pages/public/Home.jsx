@@ -213,15 +213,20 @@ function H2HTab({ players, h2hData, nameMap }) {
       {/* Matrix */}
       <div className="card overflow-x-auto">
         <table className="table-base min-w-full">
+          <colgroup>
+            <col className="w-28" />
+            {players.map(p => <col key={p.player_id} className="w-16" />)}
+            <col className="w-20" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="pl-5 text-left w-28">vs</th>
+              <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">vs</th>
               {players.map(p => (
-                <th key={p.player_id} className="text-center">
-                  <span className="truncate block">{n(p.player_id)}</span>
+                <th key={p.player_id} className="text-center whitespace-nowrap px-2">
+                  {n(p.player_id)}
                 </th>
               ))}
-              <th className="text-center pr-5">Overall</th>
+              <th className="text-center pr-5 whitespace-nowrap">Overall</th>
             </tr>
           </thead>
           <tbody>
@@ -229,7 +234,7 @@ function H2HTab({ players, h2hData, nameMap }) {
               let totalWins = 0, totalLosses = 0
               return (
                 <tr key={row.player_id}>
-                  <td className="pl-5 font-semibold text-slate-200 w-28">
+                  <td className="pl-5 font-semibold text-slate-200 sticky left-0 bg-pool-card z-10">
                     <Link
                       to={`/player/${row.player_id}`}
                       className="hover:text-pool-accent transition-colors"
@@ -246,7 +251,7 @@ function H2HTab({ players, h2hData, nameMap }) {
                     const rec = getRecord(row.player_id, col.player_id)
                     if (rec) { totalWins += rec.wins; totalLosses += rec.losses }
                     return (
-                      <td key={col.player_id} className="text-center tabular-nums text-sm">
+                      <td key={col.player_id} className="text-center tabular-nums text-sm whitespace-nowrap px-2">
                         {rec ? (
                           <span className={rec.wins > rec.losses ? 'win-text' : rec.wins < rec.losses ? 'loss-text' : 'text-slate-400'}>
                             {rec.wins}–{rec.losses}
@@ -257,7 +262,7 @@ function H2HTab({ players, h2hData, nameMap }) {
                       </td>
                     )
                   })}
-                  <td className="text-center pr-5 tabular-nums text-sm font-medium">
+                  <td className="text-center pr-5 tabular-nums text-sm font-medium whitespace-nowrap">
                     {totalWins + totalLosses > 0 ? (
                       <span className={totalWins > totalLosses ? 'win-text' : totalWins < totalLosses ? 'loss-text' : 'text-slate-400'}>
                         {totalWins}–{totalLosses}

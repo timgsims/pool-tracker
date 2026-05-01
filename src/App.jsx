@@ -9,6 +9,7 @@ import Matches from './pages/public/Matches'
 import Tournaments from './pages/public/Tournaments'
 import PlayerProfile from './pages/public/PlayerProfile'
 import Stats from './pages/public/Stats'
+import Players from './pages/public/Players'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="tournaments" element={<Tournaments />} />
               <Route path="player/:id" element={<PlayerProfile />} />
               <Route path="stats" element={<Stats />} />
+              <Route path="players" element={<Players />} />
               <Route path="login" element={<Login />} />
               <Route path="setup-profile" element={<SetupProfile />} />
               <Route path="auth/reset-password" element={<ResetPassword />} />
