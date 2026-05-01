@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
+import BracketView from '../../components/tournament/BracketView'
 
 function computeStandings(participantIds, matches) {
   const stats = {}
@@ -18,6 +19,7 @@ function computeStandings(participantIds, matches) {
 export default function Tournaments() {
   const [tournaments, setTournaments] = useState([])
   const [matchesByTournament, setMatchesByTournament] = useState({})
+  const [roundsByTournament, setRoundsByTournament] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function Tournaments() {
       supabase
         .from('tournaments')
         .select(`
-          id, name, date, format,
+          id, name, date, format, seeding,
           tournament_participants(
             player_id, final_position,
             player:player_id(id, name)
@@ -36,14 +38,28 @@ export default function Tournaments() {
         .from('matches')
         .select('id, tournament_id, player1_id, player2_id, winner_id')
         .not('tournament_id', 'is', null),
-    ]).then(([{ data: t }, { data: m }]) => {
+      supabase
+        .from('tournament_rounds')
+        .select('*')
+        .order('round_number')
+        .order('position'),
+    ]).then(([{ data: t }, { data: m }, { data: r }]) => {
       setTournaments(t ?? [])
+
       const byId = {}
       for (const match of (m ?? [])) {
         if (!byId[match.tournament_id]) byId[match.tournament_id] = []
         byId[match.tournament_id].push(match)
       }
       setMatchesByTournament(byId)
+
+      const roundsById = {}
+      for (const row of (r ?? [])) {
+        if (!roundsById[row.tournament_id]) roundsById[row.tournament_id] = []
+        roundsById[row.tournament_id].push(row)
+      }
+      setRoundsByTournament(roundsById)
+
       setLoading(false)
     })
   }, [])
@@ -69,13 +85,25 @@ export default function Tournaments() {
           {tournaments.map(t => {
             const parts = [...(t.tournament_participants ?? [])]
             const tMatches = matchesByTournament[t.id] ?? []
+            const tRounds = roundsByTournament[t.id] ?? []
+            const isBracket = t.format !== 'round_robin'
             const hasPositions = parts.some(p => p.final_position !== null)
             const winner = parts.find(p => p.final_position === 1)
-
             const participantIds = parts.map(p => p.player_id)
-            const standings = computeStandings(participantIds, tMatches)
 
-            // If final positions are set, sort by them; else sort by standings
+            const nameOf = pid => parts.find(p => p.player_id === pid)?.player?.name ?? ''
+
+            // Build bracket round groups
+            const roundGroups = []
+            if (isBracket && tRounds.length) {
+              const maxR = Math.max(...tRounds.map(r => r.round_number))
+              for (let r = 1; r <= maxR; r++) {
+                roundGroups.push(tRounds.filter(b => b.round_number === r))
+              }
+            }
+
+            // Round robin standings
+            const standings = computeStandings(participantIds, tMatches)
             const sortedParts = hasPositions
               ? [...parts].sort((a, b) => (a.final_position ?? 99) - (b.final_position ?? 99))
               : [...parts].sort((a, b) => {
@@ -87,6 +115,7 @@ export default function Tournaments() {
 
             return (
               <div key={t.id} className="card p-5">
+                {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h2 className="font-bold text-slate-100 text-lg">{t.name}</h2>
@@ -97,7 +126,7 @@ export default function Tournaments() {
                         })}
                       </span>
                       <span>·</span>
-                      <span className="capitalize">{t.format.replace('_', ' ')}</span>
+                      <span>{isBracket ? 'Single Elimination' : 'Round Robin'}</span>
                       <span>·</span>
                       <span>{parts.length} players</span>
                       {tMatches.length > 0 && (
@@ -116,7 +145,20 @@ export default function Tournaments() {
                   )}
                 </div>
 
-                {sortedParts.length > 0 && (
+                {/* Bracket view */}
+                {isBracket && roundGroups.length > 0 && (
+                  <div className="border-t border-pool-border/50 pt-4">
+                    <p className="section-header mb-3">Bracket</p>
+                    <BracketView
+                      rounds={roundGroups}
+                      nameOf={nameOf}
+                      readOnly
+                    />
+                  </div>
+                )}
+
+                {/* Round robin standings */}
+                {!isBracket && sortedParts.length > 0 && (
                   <div className="border-t border-pool-border/50 pt-3">
                     <p className="section-header mb-2">
                       {hasPositions ? 'Final standings' : 'Current standings'}

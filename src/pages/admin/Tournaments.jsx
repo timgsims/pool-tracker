@@ -10,7 +10,7 @@ export default function AdminTournaments() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin' })
+  const [form, setForm] = useState({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin', seeding: 'ranked_playoff' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -35,7 +35,7 @@ export default function AdminTournaments() {
     setError('')
     const { error } = await supabase.from('tournaments').insert(form)
     if (error) { setError(error.message); setSaving(false); return }
-    setForm({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin' })
+    setForm({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin', seeding: 'ranked_playoff' })
     setCreating(false)
     setSaving(false)
     load()
@@ -77,11 +77,23 @@ export default function AdminTournaments() {
                 <label className="label">Format</label>
                 <select className="select" value={form.format}
                   onChange={e => setForm(f => ({ ...f, format: e.target.value }))}>
-                  <option value="round_robin">Round Robin</option>
-                  <option value="bracket">Bracket</option>
+                  <option value="round_robin">Round Robin — everyone plays everyone</option>
+                  <option value="bracket">Single Elimination — knockout bracket</option>
                 </select>
               </div>
             </div>
+            {form.format === 'bracket' && (
+              <div>
+                <label className="label">Seeding method</label>
+                <select className="select" value={form.seeding}
+                  onChange={e => setForm(f => ({ ...f, seeding: e.target.value }))}>
+                  <option value="ranked_playoff">Playoff style — #1 vs lowest seed, protect top seeds to the final</option>
+                  <option value="ranked_similar">Similar ranking — #1 vs #2, competitive from round 1</option>
+                  <option value="random">Random draw</option>
+                </select>
+                <p className="text-slate-600 text-xs mt-1">Seeds are based on each player's overall win rate.</p>
+              </div>
+            )}
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <div className="flex gap-3 pt-1">
               <button type="submit" className="btn-primary" disabled={saving}>
