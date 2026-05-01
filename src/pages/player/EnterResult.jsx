@@ -14,14 +14,11 @@ export default function EnterResult() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  // Form state
   const [player1Id, setPlayer1Id] = useState(linkedPlayerId ?? '')
   const [player2Id, setPlayer2Id] = useState('')
-  const [format, setFormat] = useState('best_of_3')
   const [playedAt, setPlayedAt] = useState(nowNZLocal())
   const [tournamentId, setTournamentId] = useState('')
-  const [games, setGames] = useState([null, null, null]) // winner_id per game slot
-  const [singleWinnerId, setSingleWinnerId] = useState('')
+  const [games, setGames] = useState([null, null, null])
 
   useEffect(() => {
     Promise.all([
@@ -38,9 +35,7 @@ export default function EnterResult() {
     setGames(prev => prev.map((g, i) => i === index ? winnerId : g))
   }
 
-  // Derive match winner from games (best of 3)
   const deriveWinner = () => {
-    if (format === 'single') return singleWinnerId || null
     const p1Wins = games.filter(g => g === player1Id).length
     const p2Wins = games.filter(g => g === player2Id).length
     if (p1Wins >= 2) return player1Id
@@ -48,9 +43,7 @@ export default function EnterResult() {
     return null
   }
 
-  // How many games are needed / visible
   const gamesToShow = () => {
-    if (format === 'single') return 0
     const p1Wins = games.filter(g => g === player1Id).length
     const p2Wins = games.filter(g => g === player2Id).length
     if (p1Wins >= 2 || p2Wins >= 2) return games.findIndex((g, i) => {
@@ -63,7 +56,6 @@ export default function EnterResult() {
 
   const isValid = () => {
     if (!player1Id || !player2Id || player1Id === player2Id) return false
-    if (format === 'single') return !!singleWinnerId
     return deriveWinner() !== null
   }
 
@@ -81,7 +73,7 @@ export default function EnterResult() {
       .insert({
         player1_id: player1Id,
         player2_id: player2Id,
-        format,
+        format: 'best_of_3',
         winner_id: winnerId,
         played_at: nzLocalToISO(playedAt),
         tournament_id: tournamentId || null,
@@ -91,11 +83,11 @@ export default function EnterResult() {
 
     if (matchErr) { setError(matchErr.message); setSubmitting(false); return }
 
-    if (format === 'best_of_3') {
-      const gameRows = games.slice(0, visibleGames)
-        .filter(Boolean)
-        .map((winnerId, i) => ({ match_id: match.id, game_number: i + 1, winner_id: winnerId }))
+    const gameRows = games.slice(0, visibleGames)
+      .filter(Boolean)
+      .map((wId, i) => ({ match_id: match.id, game_number: i + 1, winner_id: wId }))
 
+    if (gameRows.length) {
       const { error: gamesErr } = await supabase.from('games').insert(gameRows)
       if (gamesErr) { setError(gamesErr.message); setSubmitting(false); return }
     }
@@ -142,31 +134,18 @@ export default function EnterResult() {
           </div>
         </div>
 
-        {/* Format & date */}
+        {/* Date & tournament */}
         <div className="card p-5 space-y-4">
           <p className="section-header mb-0">Match Details</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Format</label>
-              <select
-                className="select"
-                value={format}
-                onChange={e => { setFormat(e.target.value); setGames([null, null, null]); setSingleWinnerId('') }}
-              >
-                <option value="best_of_3">Best of 3</option>
-                <option value="single">Single Game</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Date & time</label>
-              <input
-                type="datetime-local"
-                className="input"
-                value={playedAt}
-                onChange={e => setPlayedAt(e.target.value)}
-                required
-              />
-            </div>
+          <div>
+            <label className="label">Date &amp; time</label>
+            <input
+              type="datetime-local"
+              className="input"
+              value={playedAt}
+              onChange={e => setPlayedAt(e.target.value)}
+              required
+            />
           </div>
 
           {tournaments.length > 0 && (
@@ -183,65 +162,39 @@ export default function EnterResult() {
         {/* Game results */}
         {player1Id && player2Id && player1Id !== player2Id && (
           <div className="card p-5 space-y-3">
-            <p className="section-header mb-0">
-              {format === 'best_of_3' ? 'Game Results' : 'Winner'}
-            </p>
-
-            {format === 'single' ? (
-              <div className="grid grid-cols-2 gap-2">
-                {[player1Id, player2Id].map(pid => {
-                  const name = players.find(p => p.id === pid)?.name
-                  return (
-                    <button
-                      key={pid}
-                      type="button"
-                      onClick={() => setSingleWinnerId(pid)}
-                      className={`py-3 rounded-lg font-semibold text-sm transition-all border ${
-                        singleWinnerId === pid
-                          ? 'bg-pool-accent-muted border-pool-accent text-pool-accent'
-                          : 'bg-pool-surface border-pool-border text-slate-400 hover:border-slate-500'
-                      }`}
-                    >
-                      {name} wins
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {[0, 1, 2].slice(0, gamesToShow()).map(i => (
-                  <div key={i}>
-                    <p className="text-xs text-slate-600 mb-1.5">Game {i + 1}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[player1Id, player2Id].map(pid => {
-                        const name = players.find(p => p.id === pid)?.name
-                        return (
-                          <button
-                            key={pid}
-                            type="button"
-                            onClick={() => setGame(i, pid)}
-                            className={`py-2.5 rounded-lg font-medium text-sm transition-all border ${
-                              games[i] === pid
-                                ? 'bg-pool-accent-muted border-pool-accent text-pool-accent'
-                                : 'bg-pool-surface border-pool-border text-slate-400 hover:border-slate-500'
-                            }`}
-                          >
-                            {name}
-                          </button>
-                        )
-                      })}
-                    </div>
+            <p className="section-header mb-0">Game Results</p>
+            <div className="space-y-2">
+              {[0, 1, 2].slice(0, gamesToShow()).map(i => (
+                <div key={i}>
+                  <p className="text-xs text-slate-600 mb-1.5">Game {i + 1}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[player1Id, player2Id].map(pid => {
+                      const name = players.find(p => p.id === pid)?.name
+                      return (
+                        <button
+                          key={pid}
+                          type="button"
+                          onClick={() => setGame(i, pid)}
+                          className={`py-2.5 rounded-lg font-medium text-sm transition-all border ${
+                            games[i] === pid
+                              ? 'bg-pool-accent-muted border-pool-accent text-pool-accent'
+                              : 'bg-pool-surface border-pool-border text-slate-400 hover:border-slate-500'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      )
+                    })}
                   </div>
-                ))}
+                </div>
+              ))}
 
-                {/* Show winner summary */}
-                {deriveWinner() && (
-                  <div className="mt-3 px-3 py-2.5 bg-green-950/30 border border-green-900/40 rounded-lg text-sm text-pool-win font-semibold">
-                    {players.find(p => p.id === deriveWinner())?.name} wins the match
-                  </div>
-                )}
-              </div>
-            )}
+              {deriveWinner() && (
+                <div className="mt-3 px-3 py-2.5 bg-green-950/30 border border-green-900/40 rounded-lg text-sm text-pool-win font-semibold">
+                  {players.find(p => p.id === deriveWinner())?.name} wins the match
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -252,18 +205,10 @@ export default function EnterResult() {
         )}
 
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="btn-secondary flex-1"
-          >
+          <button type="button" onClick={() => navigate('/')} className="btn-secondary flex-1">
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn-primary flex-1"
-            disabled={!isValid() || submitting}
-          >
+          <button type="submit" className="btn-primary flex-1" disabled={!isValid() || submitting}>
             {submitting ? 'Saving…' : 'Save Result'}
           </button>
         </div>

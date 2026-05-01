@@ -139,7 +139,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
                 <tr key={row.player_id}>
                   <td className="pl-5 text-slate-600 font-mono text-xs">
                     {i === 0
-                      ? <span className="text-amber-400">▲</span>
+                      ? <span>👑</span>
                       : i + 1}
                   </td>
                   <td>
@@ -321,13 +321,13 @@ function H2HTab({ players, h2hData, nameMap }) {
                     onClick={handleClick}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-pool-elevated transition-colors text-left"
                   >
-                    <span className={`font-semibold flex-1 text-right ${leftW > rightW ? 'text-slate-100' : 'text-slate-500'}`}>
+                    <span className={`font-semibold flex-1 text-right ${leftW > rightW ? 'win-text' : leftW < rightW ? 'loss-text' : 'text-slate-400'}`}>
                       {n(left.player_id)}
                     </span>
                     <span className="font-mono text-lg font-bold text-slate-300 tabular-nums w-16 text-center">
                       {leftW}–{rightW}
                     </span>
-                    <span className={`font-semibold flex-1 ${rightW > leftW ? 'text-slate-100' : 'text-slate-500'}`}>
+                    <span className={`font-semibold flex-1 ${rightW > leftW ? 'win-text' : rightW < leftW ? 'loss-text' : 'text-slate-400'}`}>
                       {n(right.player_id)}
                     </span>
                     <div className="flex items-center gap-2 w-20 justify-end">
@@ -578,28 +578,30 @@ export default function Home() {
                 const leftGames = isBo3 ? gameSeq(m.games, left?.id) : null
                 const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
                 return (
-                  <div key={m.id} className="card px-4 py-3 flex items-center gap-2">
-                    <span className="text-slate-600 text-xs font-mono w-14 shrink-0">
-                      {formatDate(m.played_at)}
-                    </span>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div key={m.id} className="card px-5 py-4">
+                    <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                         {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
-                        {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
-                        <span className={`font-semibold truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
-                        <Avatar name={left?.name} src={left?.avatar_url} size="xs" className="shrink-0" />
+                        {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
+                        <span className={`font-bold text-base truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
                       </div>
-                      <span className="text-slate-600 text-xs shrink-0 w-5 text-center">vs</span>
+                      <span className="text-slate-600 text-sm shrink-0 w-6 text-center">vs</span>
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        <Avatar name={right?.name} src={right?.avatar_url} size="xs" className="shrink-0" />
-                        <span className={`font-semibold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
-                        {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                        <span className={`font-bold text-base truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
+                        {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                         {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                       </div>
                     </div>
-                    <span className="text-slate-600 text-xs shrink-0 hidden sm:block">
-                      {isBo3 ? 'Bo3' : '1G'}
-                    </span>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-3 text-xs text-slate-600">
+                        <span>{formatDate(m.played_at)}</span>
+                        <span>·</span>
+                        <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
+                      </div>
+                      {m.winner && (
+                        <span className="badge-green shrink-0">{n(m.winner?.id)} wins</span>
+                      )}
+                    </div>
                   </div>
                 )
               })}

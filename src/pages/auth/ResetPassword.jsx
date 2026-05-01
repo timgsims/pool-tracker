@@ -44,7 +44,7 @@ export default function ResetPassword() {
 
         <div className="text-center mb-8">
           <img
-            src={`${import.meta.env.BASE_URL}logo-white.png`}
+            src={`${import.meta.env.BASE_URL}logo-white-v2.png`}
             alt="Pool Tracker"
             className="h-48 w-auto mx-auto"
           />

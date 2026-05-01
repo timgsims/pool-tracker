@@ -8,7 +8,6 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
   const [p1, setP1] = useState(match.player1?.id ?? '')
   const [p2, setP2] = useState(match.player2?.id ?? '')
   const [playedAt, setPlayedAt] = useState(isoToNZLocal(match.played_at))
-  const [format, setFormat] = useState(match.format)
   const [winner, setWinner] = useState(match.winner?.id ?? '')
   const [gameWinners, setGameWinners] = useState(() => {
     const sorted = [...(match.games ?? [])].sort((a, b) => a.game_number - b.game_number)
@@ -17,7 +16,6 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const isBo3 = format === 'best_of_3'
   const player1 = allPlayers.find(p => p.id === p1)
   const player2 = allPlayers.find(p => p.id === p2)
 
@@ -44,7 +42,7 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
           player1_id: p1,
           player2_id: p2,
           played_at: nzLocalToISO(playedAt),
-          format,
+          format: 'best_of_3',
           winner_id: winner || null,
         })
         .eq('id', match.id)
@@ -52,14 +50,12 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
 
       await supabase.from('games').delete().eq('match_id', match.id)
 
-      if (isBo3) {
-        const games = gameWinners
-          .map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null)
-          .filter(Boolean)
-        if (games.length) {
-          const { error: gErr } = await supabase.from('games').insert(games)
-          if (gErr) throw gErr
-        }
+      const games = gameWinners
+        .map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null)
+        .filter(Boolean)
+      if (games.length) {
+        const { error: gErr } = await supabase.from('games').insert(games)
+        if (gErr) throw gErr
       }
 
       onSaved()
@@ -108,15 +104,7 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
           />
         </div>
 
-        <div>
-          <label className="label">Format</label>
-          <select className="select text-sm" value={format} onChange={e => setFormat(e.target.value)}>
-            <option value="single_game">Single game</option>
-            <option value="best_of_3">Best of 3</option>
-          </select>
-        </div>
-
-        {isBo3 && p1 && p2 && (
+        {p1 && p2 && (
           <div>
             <label className="label">Game results</label>
             <div className="space-y-2">

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Avatar from '../ui/Avatar'
@@ -11,6 +12,16 @@ const NAV_LINKS = [
 export default function Navbar() {
   const { isAuthenticated, isAdmin, isPlayer, signOut, linkedPlayerName, linkedPlayerAvatar } = useAuth()
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleSignOut = async () => {
     await signOut()
@@ -21,33 +32,41 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-pool-border bg-pool-surface/95 backdrop-blur-sm">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
 
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0">
-          <img
-            src={`${import.meta.env.BASE_URL}icon.png`}
-            alt="Pool Tracker"
-            className="h-8 w-auto"
-          />
-        </Link>
+        {/* Logo — dropdown trigger */}
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            className="flex items-center gap-2 focus:outline-none"
+            aria-label="Navigation menu"
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}icon-white-bg.png`}
+              alt="Pool Tracker"
+              className="h-8 w-auto rounded"
+            />
+          </button>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
-          {NAV_LINKS.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  isActive
-                    ? 'text-slate-100 bg-pool-elevated'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-pool-elevated'
-                }`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
+          {menuOpen && (
+            <div className="absolute top-full left-0 mt-2 bg-pool-card border border-pool-border rounded-xl shadow-xl py-1.5 z-50 min-w-44">
+              {NAV_LINKS.map(({ to, label, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `block px-4 py-2.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-slate-100 bg-pool-elevated'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-pool-elevated'
+                    }`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right side actions */}

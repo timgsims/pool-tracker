@@ -106,6 +106,7 @@ export default function PlayerProfile() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
   const fileInputRef = useRef(null)
 
   const [streak, setStreak] = useState({ type: null, count: 0 })
@@ -163,6 +164,7 @@ export default function PlayerProfile() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingAvatar(true)
+    setAvatarError('')
     try {
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -173,7 +175,7 @@ export default function PlayerProfile() {
       await supabase.from('players').update({ avatar_url: publicUrl }).eq('id', id)
       setPlayer(prev => ({ ...prev, avatar_url: publicUrl }))
     } catch (err) {
-      console.error('Avatar upload failed:', err.message)
+      setAvatarError(err.message || 'Upload failed — check the avatars bucket exists and is public.')
     } finally {
       setUploadingAvatar(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -222,6 +224,9 @@ export default function PlayerProfile() {
         <div>
           <p className="section-header mb-0">Player Profile</p>
           <h1 className="page-title">{player.name}</h1>
+          {avatarError && (
+            <p className="text-red-400 text-xs mt-1">{avatarError}</p>
+          )}
         </div>
       </div>
 
