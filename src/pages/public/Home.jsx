@@ -6,6 +6,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort } from '../../lib/dateUtils'
+import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import Avatar from '../../components/ui/Avatar'
@@ -96,7 +97,7 @@ function ChartTooltip({ active, payload, label }) {
 
 // ─── Leaderboard tab ──────────────────────────────────────────────────────────
 
-function LeaderboardTab({ standings, playerStreaks, playerAvatars }) {
+function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
   if (standings.length === 0) {
     return (
       <EmptyState
@@ -151,7 +152,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars }) {
                         src={playerAvatars[row.player_id]}
                         size="sm"
                       />
-                      {row.player_name}
+                      {nameMap[row.player_id] ?? row.player_name}
                     </Link>
                   </td>
                   <td className="text-center win-text tabular-nums">{row.wins}</td>
@@ -179,7 +180,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars }) {
 
 // ─── Head-to-Head tab ─────────────────────────────────────────────────────────
 
-function H2HTab({ players, h2hData }) {
+function H2HTab({ players, h2hData, nameMap }) {
   const [expanded, setExpanded] = useState(null)
   const [matchHistory, setMatchHistory] = useState({})
 
@@ -191,6 +192,8 @@ function H2HTab({ players, h2hData }) {
       />
     )
   }
+
+  const n = id => nameMap[id] ?? ''
 
   const getRecord = (pidA, pidB) => {
     const record = h2hData.find(r =>
@@ -215,7 +218,7 @@ function H2HTab({ players, h2hData }) {
               <th className="pl-5 text-left w-28">vs</th>
               {players.map(p => (
                 <th key={p.player_id} className="text-center">
-                  <span className="truncate block">{p.player_name}</span>
+                  <span className="truncate block">{n(p.player_id)}</span>
                 </th>
               ))}
               <th className="text-center pr-5">Overall</th>
@@ -231,7 +234,7 @@ function H2HTab({ players, h2hData }) {
                       to={`/player/${row.player_id}`}
                       className="hover:text-pool-accent transition-colors"
                     >
-                      {row.player_name}
+                      {n(row.player_id)}
                     </Link>
                   </td>
                   {players.map(col => {
@@ -319,13 +322,13 @@ function H2HTab({ players, h2hData }) {
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-pool-elevated transition-colors text-left"
                   >
                     <span className={`font-semibold flex-1 text-right ${leftW > rightW ? 'text-slate-100' : 'text-slate-500'}`}>
-                      {left.player_name}
+                      {n(left.player_id)}
                     </span>
                     <span className="font-mono text-lg font-bold text-slate-300 tabular-nums w-16 text-center">
                       {leftW}–{rightW}
                     </span>
                     <span className={`font-semibold flex-1 ${rightW > leftW ? 'text-slate-100' : 'text-slate-500'}`}>
-                      {right.player_name}
+                      {n(right.player_id)}
                     </span>
                     <div className="flex items-center gap-2 w-20 justify-end">
                       <span className="text-slate-600 text-xs">
@@ -357,11 +360,11 @@ function H2HTab({ players, h2hData }) {
                                   <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                                     {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
                                     {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
-                                    <span className={`font-semibold text-sm truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{left?.name}</span>
+                                    <span className={`font-semibold text-sm truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
                                   </div>
                                   <span className="text-slate-600 text-xs shrink-0 w-5 text-center">vs</span>
                                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                    <span className={`font-semibold text-sm truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{right?.name}</span>
+                                    <span className={`font-semibold text-sm truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
                                     {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                                     {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                                   </div>
@@ -447,6 +450,7 @@ export default function Home() {
   const [yearMatches, setYearMatches] = useState([])
   const [playerStreaks, setPlayerStreaks] = useState({})
   const [playerAvatars, setPlayerAvatars] = useState({})
+  const [nameMap, setNameMap] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -489,7 +493,7 @@ export default function Home() {
 
         supabase
           .from('players')
-          .select('id, avatar_url'),
+          .select('id, name, avatar_url'),
       ])
 
       const sorted = [...(stats ?? [])].sort((a, b) => {
@@ -500,6 +504,7 @@ export default function Home() {
       const playerIds = sorted.map(s => s.player_id)
       const streaks = computeAllStreaks(allTime ?? [], playerIds)
       const avatars = Object.fromEntries((players ?? []).map(p => [p.id, p.avatar_url]))
+      const names = buildDisplayNames(players ?? [])
 
       setStandings(sorted)
       setRecentMatches(matches ?? [])
@@ -507,12 +512,15 @@ export default function Home() {
       setYearMatches(yearM ?? [])
       setPlayerStreaks(streaks)
       setPlayerAvatars(avatars)
+      setNameMap(names)
       setLoading(false)
     }
     load()
   }, [])
 
   if (loading) return <LoadingSpinner />
+
+  const n = id => nameMap[id] ?? ''
 
   return (
     <div className="space-y-8">
@@ -542,9 +550,10 @@ export default function Home() {
           standings={standings}
           playerStreaks={playerStreaks}
           playerAvatars={playerAvatars}
+          nameMap={nameMap}
         />
       )}
-      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} />}
+      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} />}
       {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} />}
 
       {/* Recent results — only on Overall tab */}
@@ -577,23 +586,13 @@ export default function Home() {
                       <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                         {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
                         {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
-                        <span className={`font-semibold truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{left?.name}</span>
-                        <Avatar
-                          name={left?.name}
-                          src={left?.avatar_url}
-                          size="xs"
-                          className="shrink-0"
-                        />
+                        <span className={`font-semibold truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
+                        <Avatar name={left?.name} src={left?.avatar_url} size="xs" className="shrink-0" />
                       </div>
                       <span className="text-slate-600 text-xs shrink-0 w-5 text-center">vs</span>
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        <Avatar
-                          name={right?.name}
-                          src={right?.avatar_url}
-                          size="xs"
-                          className="shrink-0"
-                        />
-                        <span className={`font-semibold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{right?.name}</span>
+                        <Avatar name={right?.name} src={right?.avatar_url} size="xs" className="shrink-0" />
+                        <span className={`font-semibold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
                         {isBo3 && <span className={`font-bold tabular-nums text-sm shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                         {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                       </div>

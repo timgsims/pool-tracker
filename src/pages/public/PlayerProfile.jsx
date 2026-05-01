@@ -6,6 +6,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDateShort } from '../../lib/dateUtils'
+import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
@@ -111,12 +112,13 @@ export default function PlayerProfile() {
   const [comebacks, setComebacks] = useState(0)
   const [monthlyForm, setMonthlyForm] = useState([])
   const [h2h, setH2H] = useState([])
+  const [nameMap, setNameMap] = useState({})
 
   const canUpload = isAdmin || linkedPlayerId === id
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: s }, { data: m }] = await Promise.all([
+      const [{ data: p }, { data: s }, { data: m }, { data: allPlayers }] = await Promise.all([
         supabase.from('players').select('*').eq('id', id).single(),
 
         supabase
@@ -137,6 +139,8 @@ export default function PlayerProfile() {
           `)
           .or(`player1_id.eq.${id},player2_id.eq.${id}`)
           .order('played_at', { ascending: false }),
+
+        supabase.from('players').select('id, name'),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
@@ -149,6 +153,7 @@ export default function PlayerProfile() {
       setComebacks(computeComebacks(matches, id))
       setMonthlyForm(buildMonthlyForm(matches, id))
       setH2H(computeH2H(matches, id))
+      setNameMap(buildDisplayNames(allPlayers ?? []))
       setLoading(false)
     }
     load()
@@ -310,7 +315,7 @@ export default function PlayerProfile() {
                           to={`/player/${rec.id}`}
                           className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
                         >
-                          {rec.name}
+                          {nameMap[rec.id] ?? rec.name}
                         </Link>
                       </td>
                       <td className="text-center win-text tabular-nums">{rec.wins}</td>
@@ -367,7 +372,7 @@ export default function PlayerProfile() {
                           to={`/player/${opponent?.id}`}
                           className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
                         >
-                          {opponent?.name}
+                          {nameMap[opponent?.id] ?? opponent?.name}
                         </Link>
                       </td>
                       <td className="text-left text-slate-600 text-xs">
