@@ -208,7 +208,7 @@ export default function PlayerProfile() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/" className="text-slate-600 hover:text-slate-400 transition-colors text-sm">←</Link>
+        <Link to="/" className="text-slate-400 hover:text-slate-100 transition-colors text-2xl font-bold leading-none">←</Link>
 
         {/* Avatar with optional upload */}
         <div className="relative group">
@@ -294,7 +294,7 @@ export default function PlayerProfile() {
           <p className="section-header">Last {lastTen.length} Results</p>
           <div className="card p-4">
             <div className="flex gap-1">
-              {[...lastTen].reverse().map((r, i) => (
+              {lastTen.map((r, i) => (
                 <span
                   key={i}
                   className={`flex-1 h-7 flex items-center justify-center rounded text-xs font-bold min-w-0 ${
@@ -307,7 +307,7 @@ export default function PlayerProfile() {
                 </span>
               ))}
             </div>
-            <p className="text-slate-700 text-xs mt-2 text-center">older ← · → more recent</p>
+            <p className="text-slate-700 text-xs mt-2 text-center">← more recent · older →</p>
           </div>
         </div>
       )}

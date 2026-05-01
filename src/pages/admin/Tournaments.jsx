@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 
@@ -94,12 +95,19 @@ export default function AdminTournaments() {
 
       <div className="card overflow-x-auto">
         <table className="table-base">
+          <colgroup>
+            <col />
+            <col className="w-28" />
+            <col className="w-28" />
+            <col className="w-16" />
+            <col className="w-32" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="pl-5">Name</th>
-              <th>Date</th>
-              <th>Format</th>
-              <th>Players</th>
+              <th className="pl-5 text-left">Name</th>
+              <th className="text-left">Date</th>
+              <th className="text-left">Format</th>
+              <th className="text-left">Players</th>
               <th className="text-right pr-5">Actions</th>
             </tr>
           </thead>
@@ -110,13 +118,21 @@ export default function AdminTournaments() {
               <tr key={t.id}>
                 <td className="pl-5 font-medium text-slate-200">{t.name}</td>
                 <td className="text-slate-500 text-sm">
-                  {new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </td>
                 <td className="text-slate-500 text-xs capitalize">{t.format.replace('_', ' ')}</td>
                 <td className="text-slate-500 text-sm">{t.tournament_participants?.length ?? 0}</td>
-                <td className="text-right pr-5">
-                  <button onClick={() => deleteTournament(t.id)}
-                    className="text-red-600 hover:text-red-400 text-xs transition-colors">
+                <td className="text-right pr-5 space-x-3">
+                  <Link
+                    to={`/admin/tournaments/${t.id}`}
+                    className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                  >
+                    Manage
+                  </Link>
+                  <button
+                    onClick={() => deleteTournament(t.id)}
+                    className="text-red-600 hover:text-red-400 text-xs transition-colors"
+                  >
                     Delete
                   </button>
                 </td>

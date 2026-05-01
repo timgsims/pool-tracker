@@ -182,6 +182,7 @@ export default function Stats() {
                     name={n(records.mostId)}
                     nameId={records.mostId}
                     value={allStats[records.mostId].total}
+                    valueCls="text-slate-300"
                   />
                 )}
 
@@ -223,6 +224,7 @@ export default function Stats() {
                       day: 'numeric', month: 'short', year: 'numeric',
                     })}
                     value={records.busiestDay.count}
+                    valueCls="text-slate-300"
                     sub="matches played"
                   />
                 )}

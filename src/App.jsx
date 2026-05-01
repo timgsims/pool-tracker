@@ -25,6 +25,7 @@ import AdminPlayers from './pages/admin/Players'
 import AdminUsers from './pages/admin/Users'
 import AdminMatches from './pages/admin/Matches'
 import AdminTournaments from './pages/admin/Tournaments'
+import AdminTournamentDetail from './pages/admin/TournamentDetail'
 
 function ProfileSetupGuard({ children }) {
   const { isAuthenticated, linkedPlayerId, role, loading, recoveryMode } = useAuth()
@@ -86,6 +87,7 @@ export default function App() {
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="matches" element={<AdminMatches />} />
                 <Route path="tournaments" element={<AdminTournaments />} />
+                <Route path="tournaments/:id" element={<AdminTournamentDetail />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

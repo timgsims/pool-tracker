@@ -11,6 +11,7 @@ export default function AdminPlayers() {
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  const [deleting, setDeleting] = useState(null)
 
   const load = () =>
     supabase
@@ -42,6 +43,16 @@ export default function AdminPlayers() {
   const startEdit = (player) => {
     setEditingId(player.id)
     setEditName(player.name)
+  }
+
+  const deletePlayer = async (player) => {
+    if (!confirm(`Permanently delete "${player.name}"?\n\nThis will also delete ALL matches and game records involving this player. This cannot be undone.`)) return
+    setDeleting(player.id)
+    setError('')
+    const { error } = await supabase.rpc('admin_delete_player', { target_player_id: player.id })
+    if (error) { setError(error.message); setDeleting(null); return }
+    setDeleting(null)
+    load()
   }
 
   const saveEdit = async (id) => {
@@ -89,7 +100,7 @@ export default function AdminPlayers() {
           <colgroup>
             <col />
             <col className="w-24" />
-            <col className="w-44" />
+            <col className="w-56" />
           </colgroup>
           <thead>
             <tr>
@@ -149,6 +160,13 @@ export default function AdminPlayers() {
                         className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
                       >
                         {p.active ? 'Deactivate' : 'Reactivate'}
+                      </button>
+                      <button
+                        onClick={() => deletePlayer(p)}
+                        disabled={deleting === p.id}
+                        className="text-red-600 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
+                      >
+                        {deleting === p.id ? 'Deleting…' : 'Delete'}
                       </button>
                     </>
                   )}

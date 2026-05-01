@@ -5,8 +5,11 @@ import StatCard from '../../components/ui/StatCard'
 
 export default function AdminDashboard() {
   const [counts, setCounts] = useState({ players: 0, matches: 0, users: 0 })
+  const [resetting, setResetting] = useState(false)
+  const [resetError, setResetError] = useState('')
+  const [resetDone, setResetDone] = useState(false)
 
-  useEffect(() => {
+  const loadCounts = () =>
     Promise.all([
       supabase.from('players').select('*', { count: 'exact', head: true }).eq('active', true),
       supabase.from('matches').select('*', { count: 'exact', head: true }),
@@ -14,7 +17,21 @@ export default function AdminDashboard() {
     ]).then(([{ count: players }, { count: matches }, { count: users }]) => {
       setCounts({ players: players ?? 0, matches: matches ?? 0, users: users ?? 0 })
     })
-  }, [])
+
+  const resetAllData = async () => {
+    if (!confirm('Delete ALL match and game records?\n\nThis permanently removes every match result from the database. Player accounts and profiles are kept. This cannot be undone.')) return
+    if (!confirm('Are you absolutely sure? This will wipe the entire match history.')) return
+    setResetting(true)
+    setResetError('')
+    setResetDone(false)
+    const { error } = await supabase.rpc('admin_reset_all_data')
+    if (error) { setResetError(error.message); setResetting(false); return }
+    setResetting(false)
+    setResetDone(true)
+    loadCounts()
+  }
+
+  useEffect(() => { loadCounts() }, [])
 
   return (
     <div className="space-y-6">
@@ -36,6 +53,25 @@ export default function AdminDashboard() {
             <p className="text-slate-500 text-sm">{desc}</p>
           </Link>
         ))}
+      </div>
+
+      <div className="border border-red-900/50 rounded-xl p-5 space-y-3 bg-red-950/20">
+        <p className="text-red-400 font-semibold text-sm">Danger Zone</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-slate-300 text-sm font-medium">Reset all match data</p>
+            <p className="text-slate-500 text-xs">Permanently delete every match and game record. Player profiles and user accounts are kept.</p>
+          </div>
+          <button
+            onClick={resetAllData}
+            disabled={resetting}
+            className="shrink-0 px-4 py-2 rounded-lg bg-red-900/40 border border-red-800/60 text-red-400 hover:bg-red-900/60 hover:text-red-300 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {resetting ? 'Resetting…' : 'Reset All Data'}
+          </button>
+        </div>
+        {resetError && <p className="text-red-400 text-xs">{resetError}</p>}
+        {resetDone && <p className="text-green-400 text-xs">All match data has been deleted.</p>}
       </div>
     </div>
   )
