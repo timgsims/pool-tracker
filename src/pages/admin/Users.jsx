@@ -9,6 +9,7 @@ export default function AdminUsers() {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(null)
 
   const load = async () => {
     const [{ data: u }, { data: p }] = await Promise.all([
@@ -40,6 +41,20 @@ export default function AdminUsers() {
     else load()
   }
 
+  const deleteUser = async (userId, email) => {
+    if (!confirm(`Permanently delete ${email}?\n\nThis will also delete their player profile and ALL match results they were involved in. This cannot be undone.`)) return
+    setDeleting(userId)
+    setError('')
+    const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userId })
+    if (error) {
+      setError(error.message)
+      setDeleting(null)
+    } else {
+      setDeleting(null)
+      load()
+    }
+  }
+
   if (loading) return <LoadingSpinner />
 
   return (
@@ -56,18 +71,26 @@ export default function AdminUsers() {
 
       <div className="card overflow-hidden">
         <table className="table-base">
+          <colgroup>
+            <col />
+            <col className="w-28" />
+            <col className="w-36" />
+            <col className="w-24 hidden sm:table-column" />
+            <col className="w-16" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="pl-5">Email</th>
-              <th>Role</th>
-              <th>Linked Player</th>
-              <th className="text-right pr-5 hidden sm:table-cell">Joined</th>
+              <th className="pl-5 text-left">Email</th>
+              <th className="text-left">Role</th>
+              <th className="text-left">Linked Player</th>
+              <th className="text-right hidden sm:table-cell">Joined</th>
+              <th className="text-right pr-5">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center py-8 text-slate-600">No users yet</td>
+                <td colSpan={5} className="text-center py-8 text-slate-600">No users yet</td>
               </tr>
             ) : users.map(u => (
               <tr key={u.user_id}>
@@ -91,8 +114,17 @@ export default function AdminUsers() {
                     {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </td>
-                <td className="text-right pr-5 text-slate-600 text-xs hidden sm:table-cell">
+                <td className="text-right text-slate-600 text-xs hidden sm:table-cell">
                   {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </td>
+                <td className="text-right pr-5">
+                  <button
+                    onClick={() => deleteUser(u.user_id, u.email)}
+                    disabled={deleting === u.user_id}
+                    className="text-red-600 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
+                  >
+                    {deleting === u.user_id ? 'Deleting…' : 'Delete'}
+                  </button>
                 </td>
               </tr>
             ))}

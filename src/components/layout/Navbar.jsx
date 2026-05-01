@@ -44,6 +44,7 @@ export default function Navbar() {
               alt="Pool Tracker"
               className="h-8 w-auto rounded"
             />
+            <span className="text-slate-400 text-xs font-semibold tracking-widest uppercase">Menu</span>
           </button>
 
           {menuOpen && (
