@@ -205,7 +205,7 @@ export default function AdminMatches() {
         {matches.length} matches total. Deleting a match also removes its individual game records.
       </p>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="table-base">
           <colgroup>
             <col className="w-24" />

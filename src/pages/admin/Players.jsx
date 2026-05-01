@@ -84,7 +84,7 @@ export default function AdminPlayers() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="table-base">
           <colgroup>
             <col />

@@ -110,7 +110,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
   return (
     <div className="space-y-6">
       <p className="section-header">Player Ranking</p>
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="table-base">
           <colgroup>
             <col className="w-10" />
@@ -316,7 +316,7 @@ function H2HTab({ players, h2hData, nameMap }) {
               }
 
               return (
-                <div key={key} className="card overflow-hidden">
+                <div key={key} className="card overflow-x-auto">
                   <button
                     onClick={handleClick}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-pool-elevated transition-colors text-left"

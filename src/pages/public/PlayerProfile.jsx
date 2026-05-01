@@ -362,7 +362,7 @@ export default function PlayerProfile() {
       {h2h.length > 0 && (
         <div>
           <p className="section-header">Head to Head</p>
-          <div className="card overflow-hidden">
+          <div className="card overflow-x-auto">
             <table className="table-base">
               <colgroup>
                 <col />
@@ -412,7 +412,7 @@ export default function PlayerProfile() {
         {recentMatches.length === 0 ? (
           <div className="card p-8 text-center text-slate-600">No matches yet</div>
         ) : (
-          <div className="card overflow-hidden">
+          <div className="card overflow-x-auto">
             <table className="table-base">
               <colgroup>
                 <col className="w-24" />
