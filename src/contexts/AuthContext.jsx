@@ -44,11 +44,13 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [fetchRole])
 
+  const REDIRECT_URL = `${window.location.origin}${import.meta.env.VITE_BASE_PATH || '/'}`
+
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
   const signUp = (email, password) =>
-    supabase.auth.signUp({ email, password })
+    supabase.auth.signUp({ email, password, options: { emailRedirectTo: REDIRECT_URL } })
 
   const signOut = () => supabase.auth.signOut()
 
