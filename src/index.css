@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-pool-bg text-slate-100;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply min-h-screen bg-pool-bg antialiased;
+  }
+
+  * {
+    @apply border-pool-border;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-pool-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-pool-border rounded-full;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-pool-card rounded-xl border border-pool-border;
+  }
+
+  .btn-primary {
+    @apply bg-pool-accent hover:bg-pool-accent-dim active:scale-95 text-black font-semibold
+           px-4 py-2 rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-pool-elevated hover:bg-pool-border text-slate-200 font-medium
+           px-4 py-2 rounded-lg border border-pool-border transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-slate-400 hover:text-slate-200 hover:bg-pool-elevated
+           px-3 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-900/50
+           px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .input {
+    @apply bg-pool-surface border border-pool-border rounded-lg px-3 py-2.5
+           text-slate-100 placeholder-slate-600
+           focus:outline-none focus:border-pool-accent focus:ring-1 focus:ring-pool-accent
+           transition-colors w-full;
+  }
+
+  .select {
+    @apply bg-pool-surface border border-pool-border rounded-lg px-3 py-2.5
+           text-slate-100 focus:outline-none focus:border-pool-accent focus:ring-1 focus:ring-pool-accent
+           transition-colors w-full appearance-none cursor-pointer;
+  }
+
+  .label {
+    @apply text-slate-400 text-sm font-medium mb-1.5 block;
+  }
+
+  .section-header {
+    @apply text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3;
+  }
+
+  .win-text { @apply text-pool-win font-semibold; }
+  .loss-text { @apply text-pool-loss font-semibold; }
+
+  .table-base {
+    @apply w-full text-sm;
+  }
+
+  .table-base th {
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-500 pb-3 px-3;
+  }
+
+  .table-base td {
+    @apply px-3 py-3 border-t border-pool-border/50;
+  }
+
+  .table-base tbody tr {
+    @apply hover:bg-pool-elevated/50 transition-colors;
+  }
+
+  .badge {
+    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+
+  .badge-green {
+    @apply badge bg-green-900/40 text-green-400 border border-green-900/50;
+  }
+
+  .badge-red {
+    @apply badge bg-red-900/40 text-red-400 border border-red-900/50;
+  }
+
+  .badge-gray {
+    @apply badge bg-pool-elevated text-slate-400 border border-pool-border;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold text-slate-100 mb-1;
+  }
+
+  .page-subtitle {
+    @apply text-slate-500 text-sm;
+  }
+}

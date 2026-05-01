@@ -1,0 +1,39 @@
+const TZ = 'Pacific/Auckland'
+
+// Short display: "30 Apr"
+export function formatDateShort(iso) {
+  return new Date(iso).toLocaleDateString('en-NZ', {
+    timeZone: TZ, day: 'numeric', month: 'short',
+  })
+}
+
+// Long display: "Wed, 30 Apr 2026"
+export function formatDateLong(iso) {
+  return new Date(iso).toLocaleDateString('en-NZ', {
+    timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
+
+// Returns "YYYY-MM-DDTHH:MM" in NZ local time — for initialising datetime-local inputs
+export function nowNZLocal() {
+  return new Date()
+    .toLocaleString('sv-SE', { timeZone: TZ })
+    .slice(0, 16)
+    .replace(' ', 'T')
+}
+
+// Interprets a datetime-local string ("YYYY-MM-DDTHH:MM") as NZ time and returns a UTC ISO string.
+// Without this, if the device clock is UTC the entered time would be saved 12-13 hours off.
+export function nzLocalToISO(localStr) {
+  // Temporarily treat the NZ local time as if it were UTC
+  const fakeUTC = new Date(localStr + ':00Z')
+  // Ask what NZ wall-clock time corresponds to that UTC moment
+  const nzEquiv = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(fakeUTC).replace(' ', 'T')
+  // Difference between the two tells us the NZ offset at this date (handles DST automatically)
+  const offsetMs = new Date(nzEquiv + 'Z').getTime() - fakeUTC.getTime()
+  return new Date(fakeUTC.getTime() - offsetMs).toISOString()
+}
