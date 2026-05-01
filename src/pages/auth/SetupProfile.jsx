@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+]
+
 export default function SetupProfile() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [gender, setGender] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { user, refreshRole } = useAuth()
@@ -18,7 +25,10 @@ export default function SetupProfile() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.rpc('complete_signup', { player_name: fullName })
+    const { error } = await supabase.rpc('complete_signup', {
+      player_name: fullName,
+      player_gender: gender || null,
+    })
     if (error) {
       setError(error.message)
       setLoading(false)
@@ -72,6 +82,27 @@ export default function SetupProfile() {
                 />
               </div>
             </div>
+
+            <div>
+              <label className="label">Gender <span className="text-slate-600 font-normal">(optional)</span></label>
+              <div className="grid grid-cols-3 gap-2">
+                {GENDER_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setGender(g => g === opt.value ? '' : opt.value)}
+                    className={`py-2 rounded-lg text-sm font-medium transition-all border ${
+                      gender === opt.value
+                        ? 'bg-pool-accent-muted border-pool-accent text-pool-accent'
+                        : 'bg-pool-surface border-pool-border text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <p className="text-slate-600 text-xs">
               Signed in as {user?.email}
             </p>
