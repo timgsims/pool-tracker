@@ -219,7 +219,7 @@ export default function AdminSeasons() {
                   <span className="inline-flex items-center gap-2">
                     <input
                       type="date"
-                      className="input py-0.5 text-xs inline-block w-auto"
+                      className="input py-0.5 text-xs inline-block w-auto h-auto"
                       value={editEnd}
                       onChange={e => setEditEnd(e.target.value)}
                     />
