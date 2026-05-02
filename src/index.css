@@ -29,6 +29,18 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-pool-border rounded-full;
   }
+
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }
 
 @layer components {

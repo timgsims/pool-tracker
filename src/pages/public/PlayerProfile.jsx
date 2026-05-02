@@ -363,6 +363,7 @@ export default function PlayerProfile() {
       {favOpponent && (
         <div>
           <p className="section-header">Favourite Opponent</p>
+          <p className="text-slate-600 text-xs -mt-2 mb-3">Best win rate against a single opponent (min. 3 matches)</p>
           <div className="card p-4 flex items-center justify-between gap-4">
             <div>
               <Link
