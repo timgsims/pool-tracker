@@ -281,9 +281,7 @@ export default function Stats() {
                       : days < 365 ? `${Math.floor(days / 30)}mo ago`
                       : `${Math.floor(days / 365)}yr ago`
 
-                    const best = s.maxWin >= s.maxLoss
-                      ? { label: `W${s.maxWin}`, cls: 'win-text' }
-                      : { label: `L${s.maxLoss}`, cls: 'loss-text' }
+                    const best = { label: s.maxWin > 0 ? `W${s.maxWin}` : '—', cls: 'win-text' }
 
                     return (
                       <tr key={p.id}>
@@ -301,7 +299,7 @@ export default function Stats() {
                           {(s.winRate * 100).toFixed(0)}%
                         </td>
                         <td className={`text-center font-mono text-sm tabular-nums ${best.cls}`}>
-                          {s.maxWin > 0 || s.maxLoss > 0 ? best.label : '—'}
+                          {best.label}
                         </td>
                         <td className="text-right text-slate-500 text-xs hidden sm:table-cell">{lastStr}</td>
                         <td className="text-right pr-5 hidden sm:table-cell">

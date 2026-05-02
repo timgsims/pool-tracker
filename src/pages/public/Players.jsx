@@ -33,12 +33,7 @@ export default function Players() {
 
   if (loading) return <LoadingSpinner />
 
-  const sorted = [...players].sort((a, b) => {
-    const pa = stats[a.id]?.played ?? 0
-    const pb = stats[b.id]?.played ?? 0
-    if (pb !== pa) return pb - pa
-    return a.name.localeCompare(b.name)
-  })
+  const sorted = [...players].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-6">
