@@ -61,7 +61,7 @@
     @apply bg-pool-surface border border-pool-border rounded-lg px-3 py-2.5
            text-slate-100 placeholder-slate-600
            focus:outline-none focus:border-pool-accent focus:ring-1 focus:ring-pool-accent
-           transition-colors w-full;
+           transition-colors w-full min-w-0;
   }
 
   .select {
