@@ -204,8 +204,9 @@ export default function PlayerProfile() {
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(id)
-      await supabase.from('players').update({ avatar_url: publicUrl }).eq('id', id)
-      setPlayer(prev => ({ ...prev, avatar_url: publicUrl }))
+      const bustedUrl = `${publicUrl}?t=${Date.now()}`
+      await supabase.from('players').update({ avatar_url: bustedUrl }).eq('id', id)
+      setPlayer(prev => ({ ...prev, avatar_url: bustedUrl }))
     } catch (err) {
       setAvatarError(err.message || 'Upload failed — check the avatars bucket exists and is public.')
     } finally {
@@ -246,7 +247,7 @@ export default function PlayerProfile() {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
                 onChange={handleAvatarUpload}
               />
             </>
