@@ -60,6 +60,21 @@ function computePlayerStats(matches, pid) {
   }
 }
 
+function computePlayerBo3Stats(matches, pid) {
+  const pm = matches.filter(m => (m.player1_id === pid || m.player2_id === pid) && m.format === 'best_of_3')
+  if (!pm.length) return null
+  const wins = pm.filter(m => m.winner_id === pid).length
+  const total = pm.length
+  let comebacks = 0
+  for (const m of pm) {
+    if (m.winner_id !== pid) continue
+    if (!m.games || m.games.length < 3) continue
+    const sorted = [...m.games].sort((a, b) => a.game_number - b.game_number)
+    if (sorted[0]?.winner_id !== pid) comebacks++
+  }
+  return { total, wins, losses: total - wins, winRate: total > 0 ? wins / total : 0, comebacks }
+}
+
 function computeOverallRecords(allStats, playerIds, matches, h2hData) {
   const withGames = playerIds.filter(id => (allStats[id]?.total ?? 0) > 0)
 
@@ -137,13 +152,15 @@ export default function Stats() {
   const [allStats, setAllStats] = useState({})
   const [records, setRecords] = useState(null)
   const [nameMap, setNameMap] = useState({})
+  const [bo3Players, setBo3Players] = useState([])
+  const [bo3Records, setBo3Records] = useState(null)
 
   useEffect(() => {
     async function load() {
       const [{ data: matches }, { data: p }] = await Promise.all([
         supabase
           .from('matches')
-          .select('id, played_at, player1_id, player2_id, winner_id')
+          .select('id, played_at, format, player1_id, player2_id, winner_id, games(game_number, winner_id)')
           .not('winner_id', 'is', null)
           .is('tournament_id', null)
           .order('played_at', { ascending: true }),
@@ -160,10 +177,28 @@ export default function Stats() {
 
       const recs = computeOverallRecords(stats, playerIds, matchList, h2h)
 
+      const bo3ByPid = {}
+      for (const pid of playerIds) bo3ByPid[pid] = computePlayerBo3Stats(matchList, pid)
+      const bo3WithData = playerIds.filter(id => bo3ByPid[id])
+      const bo3Most = [...bo3WithData].sort((a, b) => bo3ByPid[b].total - bo3ByPid[a].total)[0] ?? null
+      const bo3BestWin = bo3WithData.filter(id => bo3ByPid[id].total >= 3).sort((a, b) => bo3ByPid[b].winRate - bo3ByPid[a].winRate)[0] ?? null
+      const bo3MostComebacks = bo3WithData.filter(id => bo3ByPid[id].comebacks > 0).sort((a, b) => bo3ByPid[b].comebacks - bo3ByPid[a].comebacks)[0] ?? null
+
       setPlayers([...playerList].sort((a, b) => (stats[b.id]?.total ?? 0) - (stats[a.id]?.total ?? 0)))
       setAllStats(stats)
       setRecords(recs)
       setNameMap(buildDisplayNames(playerList))
+      setBo3Players(
+        [...playerList]
+          .map(p => ({ ...p, ...(bo3ByPid[p.id] ?? {}) }))
+          .filter(p => p.total > 0)
+          .sort((a, b) => b.total - a.total)
+      )
+      setBo3Records({
+        most: bo3Most ? { id: bo3Most, count: bo3ByPid[bo3Most].total } : null,
+        bestWinRate: bo3BestWin ? { id: bo3BestWin, pct: bo3ByPid[bo3BestWin].winRate } : null,
+        mostComebacks: bo3MostComebacks ? { id: bo3MostComebacks, count: bo3ByPid[bo3MostComebacks].comebacks } : null,
+      })
       setLoading(false)
     }
     load()
@@ -185,10 +220,11 @@ export default function Stats() {
         <div className="card p-8 text-center text-slate-600">No match data yet.</div>
       ) : (
         <>
-          {/* Overall Records */}
+          {/* Regular Matches */}
           {records && (
             <div>
-              <p className="section-header">Overall Records</p>
+              <p className="section-header">Regular Matches</p>
+              <p className="text-slate-600 text-xs -mt-2 mb-4">Excludes tournament matches — all formats combined</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
 
                 {records.mostId && allStats[records.mostId] && (
@@ -257,9 +293,9 @@ export default function Stats() {
             </div>
           )}
 
-          {/* Player Breakdown */}
+          {/* Regular — Player Breakdown */}
           <div>
-            <p className="section-header">Player Breakdown</p>
+            <p className="section-header">Regular — Player Breakdown</p>
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
@@ -327,6 +363,104 @@ export default function Stats() {
                 </tbody>
               </table>
             </div>
+          </div>
+          {/* Best of 3 */}
+          {bo3Players.length > 0 && (
+            <div>
+              <p className="section-header">Best of 3</p>
+              <p className="text-slate-600 text-xs -mt-2 mb-4">Non-tournament best-of-3 matches only</p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                {bo3Records?.most && (
+                  <RecordCard
+                    label="Most Bo3 Matches"
+                    name={n(bo3Records.most.id)}
+                    nameId={bo3Records.most.id}
+                    value={bo3Records.most.count}
+                    valueCls="text-slate-300"
+                  />
+                )}
+                {bo3Records?.bestWinRate && (
+                  <RecordCard
+                    label="Best Bo3 Win Rate"
+                    name={n(bo3Records.bestWinRate.id)}
+                    nameId={bo3Records.bestWinRate.id}
+                    value={`${(bo3Records.bestWinRate.pct * 100).toFixed(0)}%`}
+                    valueCls="text-pool-accent"
+                    sub="min. 3 matches"
+                  />
+                )}
+                {bo3Records?.mostComebacks && (
+                  <RecordCard
+                    label="Most Comeback Wins"
+                    name={n(bo3Records.mostComebacks.id)}
+                    nameId={bo3Records.mostComebacks.id}
+                    value={bo3Records.mostComebacks.count}
+                    valueCls="text-slate-300"
+                    sub="Won after losing game 1"
+                  />
+                )}
+              </div>
+
+              <div className="card overflow-x-auto">
+                <table className="table-base min-w-full">
+                  <colgroup>
+                    <col />
+                    <col className="w-16" />
+                    <col className="w-14" />
+                    <col className="w-14" />
+                    <col className="w-24" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="pl-5 text-left">Player</th>
+                      <th className="text-center">Played</th>
+                      <th className="text-center">W</th>
+                      <th className="text-center">L</th>
+                      <th className="text-right pr-5">Comebacks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bo3Players.map(p => (
+                      <tr key={p.id}>
+                        <td className="pl-5">
+                          <Link
+                            to={`/player/${p.id}`}
+                            className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+                          >
+                            <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                            {n(p.id)}
+                          </Link>
+                        </td>
+                        <td className="text-center text-slate-300 tabular-nums text-sm">{p.total}</td>
+                        <td className="text-center win-text tabular-nums">{p.wins}</td>
+                        <td className="text-center loss-text tabular-nums">{p.losses}</td>
+                        <td className="text-right pr-5 text-slate-300 tabular-nums text-sm">{p.comebacks}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tournament */}
+          <div>
+            <p className="section-header">Tournament</p>
+            <Link
+              to="/tournament-stats"
+              className="card p-4 flex items-center justify-between hover:bg-pool-elevated transition-colors group"
+            >
+              <div>
+                <p className="font-semibold text-slate-100 group-hover:text-pool-accent transition-colors text-sm">
+                  View Tournament Stats
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">
+                  Records, win rates, and results from competitive tournament play
+                </p>
+              </div>
+              <span className="text-slate-600 group-hover:text-slate-400 transition-colors text-lg">→</span>
+            </Link>
           </div>
         </>
       )}

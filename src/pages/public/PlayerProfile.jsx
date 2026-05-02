@@ -117,6 +117,7 @@ export default function PlayerProfile() {
   const [activeSeason, setActiveSeason] = useState(null)
   const [seasonStats, setSeasonStats] = useState(null)
   const [trophies, setTrophies] = useState([])
+  const [tournamentRecord, setTournamentRecord] = useState(null)
 
   const canUpload = isAdmin || linkedPlayerId === id
 
@@ -170,10 +171,16 @@ export default function PlayerProfile() {
         computed = { wins, losses, matches_played: played, win_pct: played > 0 ? wins / played : null }
       }
 
+      const tWins = tournamentMatches.filter(m => m.winner?.id === id).length
+      const tLosses = tournamentMatches.filter(m => m.winner && m.winner.id !== id).length
+      const tTotal = tWins + tLosses
+      const tEntered = new Set(tournamentMatches.map(m => m.tournament_id).filter(Boolean)).size
+
       setPlayer(p)
       setActiveSeason(season ?? null)
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
+      setTournamentRecord(tTotal > 0 ? { entered: tEntered, wins: tWins, losses: tLosses, winRate: tWins / tTotal } : null)
       setAllMatches(matches)
       setStreak(computeStreak(regularMatches, id))
       setComebacks(computeComebacks(regularMatches, id))
@@ -305,6 +312,22 @@ export default function PlayerProfile() {
                 <span className="text-amber-300 text-sm font-semibold">{s.name}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tournament record */}
+      {tournamentRecord && (
+        <div>
+          <p className="section-header">Tournament Record</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Tournaments" value={tournamentRecord.entered} />
+            <StatCard label="T. Wins" value={tournamentRecord.wins} accent />
+            <StatCard label="T. Losses" value={tournamentRecord.losses} />
+            <StatCard
+              label="T. Win Rate"
+              value={`${(tournamentRecord.winRate * 100).toFixed(0)}%`}
+            />
           </div>
         </div>
       )}
