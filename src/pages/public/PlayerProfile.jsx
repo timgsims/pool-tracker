@@ -11,8 +11,6 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
 
-const CURRENT_YEAR = new Date().getFullYear()
-
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
 
 function computeStreak(matches, playerId) {
@@ -101,7 +99,6 @@ export default function PlayerProfile() {
   const { id } = useParams()
   const { isAdmin, linkedPlayerId } = useAuth()
   const [player, setPlayer] = useState(null)
-  const [stats, setStats] = useState(null)
   const [allMatches, setAllMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -116,20 +113,16 @@ export default function PlayerProfile() {
   const [nameMap, setNameMap] = useState({})
   const [lastTen, setLastTen] = useState([])
   const [favOpponent, setFavOpponent] = useState(null)
+  const [activeSeason, setActiveSeason] = useState(null)
+  const [seasonStats, setSeasonStats] = useState(null)
+  const [trophies, setTrophies] = useState([])
 
   const canUpload = isAdmin || linkedPlayerId === id
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: s }, { data: m }, { data: allPlayers }] = await Promise.all([
+      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }] = await Promise.all([
         supabase.from('players').select('*').eq('id', id).single(),
-
-        supabase
-          .from('player_season_stats')
-          .select('*')
-          .eq('player_id', id)
-          .eq('season', CURRENT_YEAR)
-          .single(),
 
         supabase
           .from('matches')
@@ -144,13 +137,40 @@ export default function PlayerProfile() {
           .order('played_at', { ascending: false }),
 
         supabase.from('players').select('id, name'),
+
+        supabase.from('seasons').select('id, name, start_date, end_date').eq('is_active', true).maybeSingle(),
+
+        supabase
+          .from('seasons')
+          .select('id, name, end_date')
+          .eq('champion_player_id', id)
+          .eq('completed', true)
+          .order('end_date', { ascending: false }),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
 
       const matches = m ?? []
+
+      // Compute active season stats from match dates
+      let computed = null
+      if (season) {
+        const from = new Date(season.start_date + 'T00:00:00')
+        const to = new Date(season.end_date + 'T23:59:59')
+        const seasonM = matches.filter(m => {
+          const d = new Date(m.played_at)
+          return d >= from && d <= to && m.winner
+        })
+        const wins = seasonM.filter(m => m.winner.id === id).length
+        const losses = seasonM.filter(m => m.winner.id !== id).length
+        const played = wins + losses
+        computed = { wins, losses, matches_played: played, win_pct: played > 0 ? wins / played : null }
+      }
+
       setPlayer(p)
-      setStats(s)
+      setActiveSeason(season ?? null)
+      setSeasonStats(computed)
+      setTrophies(wonSeasons ?? [])
       setAllMatches(matches)
       setStreak(computeStreak(matches, id))
       setComebacks(computeComebacks(matches, id))
@@ -235,7 +255,14 @@ export default function PlayerProfile() {
 
         <div>
           <p className="section-header mb-0">Player Profile</p>
-          <h1 className="page-title">{player.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="page-title">{player.name}</h1>
+            {trophies.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-900/30 border border-amber-700/50 text-amber-400 text-xs font-bold tracking-wide shrink-0">
+                {trophies.length}× Champ
+              </span>
+            )}
+          </div>
           {avatarError && (
             <p className="text-red-400 text-xs mt-1">{avatarError}</p>
           )}
@@ -243,18 +270,38 @@ export default function PlayerProfile() {
       </div>
 
       {/* Season stats */}
-      <div>
-        <p className="section-header">Season {CURRENT_YEAR}</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Wins" value={stats?.wins ?? 0} accent />
-          <StatCard label="Losses" value={stats?.losses ?? 0} />
-          <StatCard label="Played" value={stats?.matches_played ?? 0} />
-          <StatCard
-            label="Win Rate"
-            value={stats?.win_pct != null ? `${(stats.win_pct * 100).toFixed(0)}%` : '—'}
-          />
+      {activeSeason && (
+        <div>
+          <p className="section-header">Season — {activeSeason.name}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Wins" value={seasonStats?.wins ?? 0} accent />
+            <StatCard label="Losses" value={seasonStats?.losses ?? 0} />
+            <StatCard label="Played" value={seasonStats?.matches_played ?? 0} />
+            <StatCard
+              label="Win Rate"
+              value={seasonStats?.win_pct != null ? `${(seasonStats.win_pct * 100).toFixed(0)}%` : '—'}
+            />
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Trophy cabinet */}
+      {trophies.length > 0 && (
+        <div>
+          <p className="section-header">Trophy Cabinet</p>
+          <div className="flex flex-wrap gap-2">
+            {trophies.map(s => (
+              <div
+                key={s.id}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-700/40"
+              >
+                <span className="text-amber-400 text-base">🏆</span>
+                <span className="text-amber-300 text-sm font-semibold">{s.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Streak & comebacks */}
       {allMatches.length > 0 && (

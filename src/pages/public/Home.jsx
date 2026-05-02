@@ -11,8 +11,6 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import Avatar from '../../components/ui/Avatar'
 
-const CURRENT_YEAR = new Date().getFullYear()
-
 const PLAYER_COLORS = [
   '#22c55e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316',
 ]
@@ -58,14 +56,34 @@ function computeAllStreaks(allTimeMatches, playerIds) {
   return streaks
 }
 
+function computeHomeStandings(matches, players) {
+  const stats = {}
+  for (const p of players) {
+    stats[p.id] = { player_id: p.id, player_name: p.name, wins: 0, losses: 0, matches_played: 0 }
+  }
+  for (const m of matches) {
+    if (!m.winner_id) continue
+    if (stats[m.winner_id]) { stats[m.winner_id].wins++; stats[m.winner_id].matches_played++ }
+    const loserId = m.winner_id === m.player1_id ? m.player2_id : m.player1_id
+    if (stats[loserId]) { stats[loserId].losses++; stats[loserId].matches_played++ }
+  }
+  return Object.values(stats)
+    .filter(p => p.matches_played > 0)
+    .map(p => ({ ...p, win_pct: p.wins / p.matches_played }))
+    .sort((a, b) => {
+      const diff = (b.win_pct ?? 0) - (a.win_pct ?? 0)
+      return diff !== 0 ? diff : b.wins - a.wins
+    })
+}
+
 // ─── Season graph helpers ─────────────────────────────────────────────────────
 
-function buildSeasonData(yearMatches, standings) {
+function buildSeasonData(yearMatches, standings, startLabel) {
   const wins = {}
   standings.forEach(p => { wins[p.player_id] = 0 })
 
   const points = [{
-    date: `1 Jan`,
+    date: startLabel ?? '—',
     ...Object.fromEntries(standings.map(p => [p.player_name, 0])),
   }]
 
@@ -393,21 +411,25 @@ function H2HTab({ players, h2hData, nameMap }) {
 
 // ─── Season graph tab ─────────────────────────────────────────────────────────
 
-function SeasonTab({ standings, yearMatches }) {
+function SeasonTab({ standings, yearMatches, activeSeason }) {
   if (!yearMatches.length) {
     return (
       <EmptyState
-        title="No matches this season"
+        title={activeSeason ? 'No matches this season' : 'No matches recorded'}
         message="The cumulative wins graph will appear once matches are recorded."
       />
     )
   }
 
-  const data = buildSeasonData(yearMatches, standings)
+  const seasonName = activeSeason?.name ?? 'All Time'
+  const startLabel = activeSeason
+    ? formatDate(activeSeason.start_date + 'T12:00:00')
+    : formatDate(yearMatches[0]?.played_at)
+  const data = buildSeasonData(yearMatches, standings, startLabel)
 
   return (
     <div className="space-y-4">
-      <p className="section-header">Cumulative Wins — {CURRENT_YEAR}</p>
+      <p className="section-header">Cumulative Wins — {seasonName}</p>
       <div className="card p-4 pt-6">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={data} margin={{ top: 5, right: 16, left: -16, bottom: 5 }}>
@@ -449,6 +471,7 @@ function SeasonTab({ standings, yearMatches }) {
 
 export default function Home() {
   const [tab, setTab] = useState('leaderboard')
+  const [activeSeason, setActiveSeason] = useState(null)
   const [standings, setStandings] = useState([])
   const [recentMatches, setRecentMatches] = useState([])
   const [h2hData, setH2hData] = useState([])
@@ -460,11 +483,8 @@ export default function Home() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: stats }, { data: matches }, { data: h2h }, { data: yearM }, { data: allTime }, { data: players }] = await Promise.all([
-        supabase
-          .from('player_season_stats')
-          .select('*')
-          .eq('season', CURRENT_YEAR),
+      const [{ data: season }, { data: matches }, { data: h2h }, { data: allTime }, { data: players }] = await Promise.all([
+        supabase.from('seasons').select('id, name, start_date, end_date').eq('is_active', true).maybeSingle(),
 
         supabase
           .from('matches')
@@ -484,14 +504,6 @@ export default function Home() {
 
         supabase
           .from('matches')
-          .select('id, played_at, winner_id')
-          .gte('played_at', `${CURRENT_YEAR}-01-01`)
-          .lte('played_at', `${CURRENT_YEAR}-12-31`)
-          .not('winner_id', 'is', null)
-          .order('played_at', { ascending: true }),
-
-        supabase
-          .from('matches')
           .select('id, played_at, player1_id, player2_id, winner_id')
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: false }),
@@ -501,20 +513,35 @@ export default function Home() {
           .select('id, name, avatar_url'),
       ])
 
-      const sorted = [...(stats ?? [])].sort((a, b) => {
-        const diff = (b.win_pct ?? 0) - (a.win_pct ?? 0)
-        return diff !== 0 ? diff : b.wins - a.wins
-      })
+      const allTimeMatches = allTime ?? []
+      const playerList = players ?? []
 
-      const playerIds = sorted.map(s => s.player_id)
-      const streaks = computeAllStreaks(allTime ?? [], playerIds)
-      const avatars = Object.fromEntries((players ?? []).map(p => [p.id, p.avatar_url]))
-      const names = buildDisplayNames(players ?? [])
+      // Filter to active season date range (or all-time if no active season)
+      let seasonMatches
+      if (season) {
+        const from = new Date(season.start_date + 'T00:00:00')
+        const to = new Date(season.end_date + 'T23:59:59')
+        seasonMatches = allTimeMatches.filter(m => {
+          const d = new Date(m.played_at)
+          return d >= from && d <= to
+        })
+      } else {
+        seasonMatches = allTimeMatches
+      }
 
+      // Ascending for graph
+      const seasonMatchesAsc = [...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
+
+      const sorted = computeHomeStandings(seasonMatches, playerList)
+      const streaks = computeAllStreaks(allTimeMatches, sorted.map(s => s.player_id))
+      const avatars = Object.fromEntries(playerList.map(p => [p.id, p.avatar_url]))
+      const names = buildDisplayNames(playerList)
+
+      setActiveSeason(season ?? null)
       setStandings(sorted)
       setRecentMatches(matches ?? [])
       setH2hData(h2h ?? [])
-      setYearMatches(yearM ?? [])
+      setYearMatches(seasonMatchesAsc)
       setPlayerStreaks(streaks)
       setPlayerAvatars(avatars)
       setNameMap(names)
@@ -532,7 +559,7 @@ export default function Home() {
 
       {/* Page header */}
       <div>
-        <p className="section-header">Season {CURRENT_YEAR}</p>
+        <p className="section-header">{activeSeason ? `Season — ${activeSeason.name}` : 'All Time'}</p>
         <h1 className="text-3xl font-bold text-slate-100">Leaderboard</h1>
       </div>
 
@@ -559,7 +586,7 @@ export default function Home() {
         />
       )}
       {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} />}
-      {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} />}
+      {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} activeSeason={activeSeason} />}
 
       {/* Recent results — only on Overall tab */}
       {tab === 'leaderboard' && (

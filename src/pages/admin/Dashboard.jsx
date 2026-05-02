@@ -47,6 +47,7 @@ export default function AdminDashboard() {
           { to: '/admin/users', label: 'Manage Users', desc: 'View all signed-up users and assign or change their roles' },
           { to: '/admin/matches', label: 'Edit Matches', desc: 'View, edit, or delete any match result' },
           { to: '/admin/tournaments', label: 'Tournaments', desc: 'Create and manage tournament brackets and round robins' },
+          { to: '/admin/seasons', label: 'Seasons', desc: 'Define season date ranges, view standings, and award season champions' },
         ].map(({ to, label, desc }) => (
           <Link key={to} to={to} className="card p-5 hover:border-slate-600 transition-colors block">
             <p className="font-semibold text-slate-100 mb-1">{label}</p>
