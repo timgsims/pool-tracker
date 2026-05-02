@@ -212,7 +212,7 @@ export default function EnterResult() {
             <label className="label">Date &amp; time</label>
             <input
               type="datetime-local"
-              className="input max-w-xs"
+              className="input"
               value={playedAt}
               onChange={e => setPlayedAt(e.target.value)}
               required
