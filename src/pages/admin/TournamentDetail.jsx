@@ -229,6 +229,42 @@ export default function AdminTournamentDetail() {
       .map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null)
       .filter(Boolean)
     if (gameRows.length) await supabase.from('games').insert(gameRows)
+
+    // Auto-fill final positions when all RR pairs are now complete
+    const { data: freshMatches } = await supabase
+      .from('matches')
+      .select('player1_id, player2_id, winner_id')
+      .eq('tournament_id', id)
+      .not('winner_id', 'is', null)
+
+    const allPairsPlayed = (() => {
+      for (let i = 0; i < participantIds.length; i++) {
+        for (let j = i + 1; j < participantIds.length; j++) {
+          const p1 = participantIds[i], p2 = participantIds[j]
+          if (!(freshMatches ?? []).find(m =>
+            (m.player1_id === p1 && m.player2_id === p2) ||
+            (m.player1_id === p2 && m.player2_id === p1)
+          )) return false
+        }
+      }
+      return participantIds.length >= 2
+    })()
+
+    if (allPairsPlayed) {
+      const freshStandings = computeStandings(participantIds, freshMatches ?? [])
+      const sorted = [...participantIds].sort((a, b) => {
+        const wa = freshStandings[a]?.wins ?? 0, wb = freshStandings[b]?.wins ?? 0
+        if (wb !== wa) return wb - wa
+        return (freshStandings[a]?.losses ?? 0) - (freshStandings[b]?.losses ?? 0)
+      })
+      for (const [i, pid] of sorted.entries()) {
+        await supabase.from('tournament_participants')
+          .update({ final_position: i + 1 })
+          .eq('tournament_id', id)
+          .eq('player_id', pid)
+      }
+    }
+
     load()
     return null
   }
