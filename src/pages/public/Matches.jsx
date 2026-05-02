@@ -94,10 +94,9 @@ export default function Matches() {
                     <span>·</span>
                     <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
                     {m.tournament && (
-                      <>
-                        <span>·</span>
-                        <span className="text-slate-500">{m.tournament.name}</span>
-                      </>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-pool-elevated border border-pool-border text-slate-400">
+                        {m.tournament.name}
+                      </span>
                     )}
                   </div>
                   {m.winner && (

@@ -110,6 +110,7 @@ export default function PlayerProfile() {
   const [comebacks, setComebacks] = useState(0)
   const [monthlyForm, setMonthlyForm] = useState([])
   const [h2h, setH2H] = useState([])
+  const [tournamentH2H, setTournamentH2H] = useState([])
   const [nameMap, setNameMap] = useState({})
   const [lastTen, setLastTen] = useState([])
   const [favOpponent, setFavOpponent] = useState(null)
@@ -127,7 +128,7 @@ export default function PlayerProfile() {
         supabase
           .from('matches')
           .select(`
-            id, played_at, format,
+            id, played_at, format, tournament_id,
             player1:player1_id(id, name),
             player2:player2_id(id, name),
             winner:winner_id(id, name),
@@ -151,13 +152,15 @@ export default function PlayerProfile() {
       if (!p) { setNotFound(true); setLoading(false); return }
 
       const matches = m ?? []
+      const regularMatches = matches.filter(m => !m.tournament_id)
+      const tournamentMatches = matches.filter(m => m.tournament_id)
 
       // Compute active season stats from match dates
       let computed = null
       if (season) {
         const from = new Date(season.start_date + 'T00:00:00')
         const to = new Date(season.end_date + 'T23:59:59')
-        const seasonM = matches.filter(m => {
+        const seasonM = regularMatches.filter(m => {
           const d = new Date(m.played_at)
           return d >= from && d <= to && m.winner
         })
@@ -172,17 +175,19 @@ export default function PlayerProfile() {
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
       setAllMatches(matches)
-      setStreak(computeStreak(matches, id))
-      setComebacks(computeComebacks(matches, id))
-      setMonthlyForm(buildMonthlyForm(matches, id))
-      const h2hData = computeH2H(matches, id)
-      setH2H(h2hData)
+      setStreak(computeStreak(regularMatches, id))
+      setComebacks(computeComebacks(regularMatches, id))
+      setMonthlyForm(buildMonthlyForm(regularMatches, id))
+      const regularH2H = computeH2H(regularMatches, id)
+      setH2H(regularH2H)
+      const tournH2H = computeH2H(tournamentMatches, id)
+      setTournamentH2H(tournH2H)
       setNameMap(buildDisplayNames(allPlayers ?? []))
 
-      const ten = matches.filter(m => m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
+      const ten = regularMatches.filter(m => m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
       setLastTen(ten)
 
-      const fav = h2hData
+      const fav = regularH2H
         .filter(o => o.wins + o.losses >= 3)
         .sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
       setFavOpponent(fav)
@@ -411,50 +416,101 @@ export default function PlayerProfile() {
       )}
 
       {/* H2H records */}
-      {h2h.length > 0 && (
+      {(h2h.length > 0 || tournamentH2H.length > 0) && (
         <div>
           <p className="section-header">Head to Head</p>
-          <div className="card overflow-x-auto">
-            <table className="table-base">
-              <colgroup>
-                <col />
-                <col className="w-12" />
-                <col className="w-12" />
-                <col className="w-20" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="pl-5 text-left">Opponent</th>
-                  <th className="text-center">W</th>
-                  <th className="text-center">L</th>
-                  <th className="text-right pr-5">Win %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {h2h.map(rec => {
-                  const total = rec.wins + rec.losses
-                  const pct = total > 0 ? Math.round((rec.wins / total) * 100) : null
-                  return (
-                    <tr key={rec.id}>
-                      <td className="pl-5">
-                        <Link
-                          to={`/player/${rec.id}`}
-                          className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
-                        >
-                          {nameMap[rec.id] ?? rec.name}
-                        </Link>
-                      </td>
-                      <td className="text-center win-text tabular-nums">{rec.wins}</td>
-                      <td className="text-center loss-text tabular-nums">{rec.losses}</td>
-                      <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
-                        {pct != null ? `${pct}%` : '—'}
-                      </td>
+          {h2h.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-slate-500 mb-2">Regular</p>
+              <div className="card overflow-x-auto">
+                <table className="table-base">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-12" />
+                    <col className="w-20" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="pl-5 text-left">Opponent</th>
+                      <th className="text-center">W</th>
+                      <th className="text-center">L</th>
+                      <th className="text-right pr-5">Win %</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {h2h.map(rec => {
+                      const total = rec.wins + rec.losses
+                      const pct = total > 0 ? Math.round((rec.wins / total) * 100) : null
+                      return (
+                        <tr key={rec.id}>
+                          <td className="pl-5">
+                            <Link
+                              to={`/player/${rec.id}`}
+                              className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
+                            >
+                              {nameMap[rec.id] ?? rec.name}
+                            </Link>
+                          </td>
+                          <td className="text-center win-text tabular-nums">{rec.wins}</td>
+                          <td className="text-center loss-text tabular-nums">{rec.losses}</td>
+                          <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
+                            {pct != null ? `${pct}%` : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          {tournamentH2H.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-slate-500 mt-4 mb-2">Tournament</p>
+              <div className="card overflow-x-auto">
+                <table className="table-base">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-12" />
+                    <col className="w-20" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="pl-5 text-left">Opponent</th>
+                      <th className="text-center">W</th>
+                      <th className="text-center">L</th>
+                      <th className="text-right pr-5">Win %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tournamentH2H.map(rec => {
+                      const total = rec.wins + rec.losses
+                      const pct = total > 0 ? Math.round((rec.wins / total) * 100) : null
+                      return (
+                        <tr key={rec.id}>
+                          <td className="pl-5">
+                            <Link
+                              to={`/player/${rec.id}`}
+                              className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
+                            >
+                              {nameMap[rec.id] ?? rec.name}
+                            </Link>
+                          </td>
+                          <td className="text-center win-text tabular-nums">{rec.wins}</td>
+                          <td className="text-center loss-text tabular-nums">{rec.losses}</td>
+                          <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
+                            {pct != null ? `${pct}%` : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
 

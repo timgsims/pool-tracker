@@ -7,6 +7,19 @@ import Avatar from '../../components/ui/Avatar'
 
 // ─── Computation helpers ──────────────────────────────────────────────────────
 
+function computeH2HFromMatches(matches) {
+  const pairMap = {}
+  for (const m of matches) {
+    const [a, b] = [m.player1_id, m.player2_id].sort()
+    const key = `${a}-${b}`
+    if (!pairMap[key]) pairMap[key] = { player_a_id: a, player_b_id: b, player_a_wins: 0, player_b_wins: 0, matches_played: 0 }
+    pairMap[key].matches_played++
+    if (m.winner_id === a) pairMap[key].player_a_wins++
+    else pairMap[key].player_b_wins++
+  }
+  return Object.values(pairMap)
+}
+
 function computePlayerStats(matches, pid) {
   // matches sorted ascending by date
   const pm = matches.filter(m => m.player1_id === pid || m.player2_id === pid)
@@ -127,24 +140,25 @@ export default function Stats() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: matches }, { data: p }, { data: h2h }] = await Promise.all([
+      const [{ data: matches }, { data: p }] = await Promise.all([
         supabase
           .from('matches')
           .select('id, played_at, player1_id, player2_id, winner_id')
           .not('winner_id', 'is', null)
+          .is('tournament_id', null)
           .order('played_at', { ascending: true }),
         supabase.from('players').select('id, name, avatar_url').eq('active', true),
-        supabase.from('head_to_head_stats').select('*'),
       ])
 
       const playerList = p ?? []
       const matchList = matches ?? []
       const playerIds = playerList.map(pl => pl.id)
+      const h2h = computeH2HFromMatches(matchList)
 
       const stats = {}
       for (const pid of playerIds) stats[pid] = computePlayerStats(matchList, pid)
 
-      const recs = computeOverallRecords(stats, playerIds, matchList, h2h ?? [])
+      const recs = computeOverallRecords(stats, playerIds, matchList, h2h)
 
       setPlayers([...playerList].sort((a, b) => (stats[b.id]?.total ?? 0) - (stats[a.id]?.total ?? 0)))
       setAllStats(stats)

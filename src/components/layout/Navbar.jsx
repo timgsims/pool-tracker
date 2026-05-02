@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { to: '/players', label: 'Players' },
   { to: '/stats', label: 'Stats' },
   { to: '/tournaments', label: 'Tournaments' },
+  { to: '/tournament-stats', label: 'Tournament Stats' },
 ]
 
 export default function Navbar() {

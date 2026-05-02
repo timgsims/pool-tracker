@@ -76,6 +76,19 @@ function computeHomeStandings(matches, players) {
     })
 }
 
+function computeH2HFromMatches(matches) {
+  const pairMap = {}
+  for (const m of matches) {
+    const [a, b] = [m.player1_id, m.player2_id].sort()
+    const key = `${a}-${b}`
+    if (!pairMap[key]) pairMap[key] = { player_a_id: a, player_b_id: b, player_a_wins: 0, player_b_wins: 0, matches_played: 0 }
+    pairMap[key].matches_played++
+    if (m.winner_id === a) pairMap[key].player_a_wins++
+    else pairMap[key].player_b_wins++
+  }
+  return Object.values(pairMap)
+}
+
 // ─── Season graph helpers ─────────────────────────────────────────────────────
 
 function buildSeasonData(yearMatches, standings, startLabel) {
@@ -334,6 +347,7 @@ function H2HTab({ players, h2hData, nameMap }) {
                     games(game_number, winner_id)
                   `)
                   .or(`and(player1_id.eq.${record.player_a_id},player2_id.eq.${record.player_b_id}),and(player1_id.eq.${record.player_b_id},player2_id.eq.${record.player_a_id})`)
+                  .is('tournament_id', null)
                   .order('played_at', { ascending: false })
                 setMatchHistory(prev => ({ ...prev, [key]: data ?? [] }))
               }
@@ -483,7 +497,7 @@ export default function Home() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: season }, { data: matches }, { data: h2h }, { data: allTime }, { data: players }] = await Promise.all([
+      const [{ data: season }, { data: matches }, { data: allTime }, { data: players }] = await Promise.all([
         supabase.from('seasons').select('id, name, start_date, end_date').eq('is_active', true).maybeSingle(),
 
         supabase
@@ -499,12 +513,8 @@ export default function Home() {
           .limit(8),
 
         supabase
-          .from('head_to_head_stats')
-          .select('*'),
-
-        supabase
           .from('matches')
-          .select('id, played_at, player1_id, player2_id, winner_id')
+          .select('id, played_at, player1_id, player2_id, winner_id, tournament_id')
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: false }),
 
@@ -516,31 +526,33 @@ export default function Home() {
       const allTimeMatches = allTime ?? []
       const playerList = players ?? []
 
+      const nonTournamentMatches = allTimeMatches.filter(m => !m.tournament_id)
+
       // Filter to active season date range (or all-time if no active season)
       let seasonMatches
       if (season) {
         const from = new Date(season.start_date + 'T00:00:00')
         const to = new Date(season.end_date + 'T23:59:59')
-        seasonMatches = allTimeMatches.filter(m => {
+        seasonMatches = nonTournamentMatches.filter(m => {
           const d = new Date(m.played_at)
           return d >= from && d <= to
         })
       } else {
-        seasonMatches = allTimeMatches
+        seasonMatches = nonTournamentMatches
       }
 
       // Ascending for graph
       const seasonMatchesAsc = [...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
 
-      const sorted = computeHomeStandings(seasonMatches, playerList)
-      const streaks = computeAllStreaks(allTimeMatches, sorted.map(s => s.player_id))
+      const sorted = computeHomeStandings(nonTournamentMatches, playerList)
+      const streaks = computeAllStreaks(nonTournamentMatches, sorted.map(s => s.player_id))
       const avatars = Object.fromEntries(playerList.map(p => [p.id, p.avatar_url]))
       const names = buildDisplayNames(playerList)
 
       setActiveSeason(season ?? null)
       setStandings(sorted)
       setRecentMatches(matches ?? [])
-      setH2hData(h2h ?? [])
+      setH2hData(computeH2HFromMatches(nonTournamentMatches))
       setYearMatches(seasonMatchesAsc)
       setPlayerStreaks(streaks)
       setPlayerAvatars(avatars)

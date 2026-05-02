@@ -10,6 +10,7 @@ import Tournaments from './pages/public/Tournaments'
 import PlayerProfile from './pages/public/PlayerProfile'
 import Stats from './pages/public/Stats'
 import Players from './pages/public/Players'
+import TournamentStats from './pages/public/TournamentStats'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -59,6 +60,7 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="matches" element={<Matches />} />
               <Route path="tournaments" element={<Tournaments />} />
+              <Route path="tournament-stats" element={<TournamentStats />} />
               <Route path="player/:id" element={<PlayerProfile />} />
               <Route path="stats" element={<Stats />} />
               <Route path="players" element={<Players />} />
