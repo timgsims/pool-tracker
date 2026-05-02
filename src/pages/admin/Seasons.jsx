@@ -272,17 +272,15 @@ export default function AdminSeasons() {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="label">Start date</label>
-                    <input type="date" className="input" value={form.start_date}
-                      onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} required />
-                  </div>
-                  <div>
-                    <label className="label">End date</label>
-                    <input type="date" className="input" value={form.end_date}
-                      onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} required />
-                  </div>
+                <div>
+                  <label className="label">Start date</label>
+                  <input type="date" className="input" value={form.start_date}
+                    onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="label">End date</label>
+                  <input type="date" className="input" value={form.end_date}
+                    onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} required />
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={saving} className="btn-primary">

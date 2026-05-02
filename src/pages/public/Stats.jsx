@@ -51,8 +51,9 @@ function computeOverallRecords(allStats, playerIds, matches, h2hData) {
   const withGames = playerIds.filter(id => (allStats[id]?.total ?? 0) > 0)
 
   const mostId = [...withGames].sort((a, b) => (allStats[b]?.total ?? 0) - (allStats[a]?.total ?? 0))[0] ?? null
-  const qualified = withGames.filter(id => (allStats[id]?.total ?? 0) >= 5)
-  const leastId = [...qualified].sort((a, b) => (allStats[a]?.total ?? 0) - (allStats[b]?.total ?? 0))[0] ?? null
+  const leastId = withGames.length > 1
+    ? [...withGames].filter(id => id !== mostId).sort((a, b) => (allStats[a]?.total ?? 0) - (allStats[b]?.total ?? 0))[0] ?? null
+    : null
 
   const longestWin = withGames.reduce((best, pid) => {
     const v = allStats[pid]?.maxWin ?? 0
@@ -193,7 +194,6 @@ export default function Stats() {
                     nameId={records.leastId}
                     value={allStats[records.leastId].total}
                     valueCls="text-slate-400"
-                    sub="min. 5 played"
                   />
                 )}
 

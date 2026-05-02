@@ -33,7 +33,9 @@ export default function AdminTournaments() {
     e.preventDefault()
     setSaving(true)
     setError('')
-    const { error } = await supabase.from('tournaments').insert(form)
+    const payload = { name: form.name, date: form.date, format: form.format }
+    if (form.format === 'bracket') payload.seeding = form.seeding
+    const { error } = await supabase.from('tournaments').insert(payload)
     if (error) { setError(error.message); setSaving(false); return }
     setForm({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin', seeding: 'ranked_playoff' })
     setCreating(false)
@@ -67,20 +69,18 @@ export default function AdminTournaments() {
                 value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Date</label>
-                <input type="date" className="input" value={form.date}
-                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
-              </div>
-              <div>
-                <label className="label">Format</label>
-                <select className="select" value={form.format}
-                  onChange={e => setForm(f => ({ ...f, format: e.target.value }))}>
-                  <option value="round_robin">Round Robin — everyone plays everyone</option>
-                  <option value="bracket">Single Elimination — knockout bracket</option>
-                </select>
-              </div>
+            <div>
+              <label className="label">Date</label>
+              <input type="date" className="input" value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Format</label>
+              <select className="select" value={form.format}
+                onChange={e => setForm(f => ({ ...f, format: e.target.value }))}>
+                <option value="round_robin">Round Robin — everyone plays everyone</option>
+                <option value="bracket">Single Elimination — knockout bracket</option>
+              </select>
             </div>
             {form.format === 'bracket' && (
               <div>

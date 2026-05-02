@@ -18,7 +18,7 @@ export default function AdminLayout() {
       </div>
 
       {/* Admin nav tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-pool-border pb-0 -mb-2">
+      <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-pool-border pb-0 -mb-px">
         {ADMIN_LINKS.map(({ to, label, end }) => (
           <NavLink
             key={to}
