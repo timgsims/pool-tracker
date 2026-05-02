@@ -147,6 +147,10 @@ export default function AdminTournamentDetail() {
   // Bracket generation
   const [generating, setGenerating] = useState(false)
 
+  // Round-robin tiebreaker
+  const [tiebreakerActive, setTiebreakerActive] = useState(false)
+  const [tiebreakerPlayers, setTiebreakerPlayers] = useState([])
+
   // Final positions
   const [editingPos, setEditingPos] = useState(false)
   const [posMap, setPosMap] = useState({})
@@ -477,6 +481,33 @@ export default function AdminTournamentDetail() {
     return (standings[a]?.losses ?? 0) - (standings[b]?.losses ?? 0)
   })
 
+  const allPairsPlayed = rrPairs.length > 0 && rrComplete === rrPairs.length
+  const topWins = allPairsPlayed && participantIds.length > 0
+    ? Math.max(...participantIds.map(pid => standings[pid]?.wins ?? 0))
+    : -1
+  const tiedForFirst = topWins >= 0
+    ? participantIds.filter(pid => (standings[pid]?.wins ?? 0) === topWins)
+    : []
+  const hasTie = tiedForFirst.length >= 2
+
+  const tbPairs = tiebreakerActive ? (() => {
+    const pairs = []
+    for (let i = 0; i < tiebreakerPlayers.length; i++) {
+      for (let j = i + 1; j < tiebreakerPlayers.length; j++) {
+        const p1 = tiebreakerPlayers[i], p2 = tiebreakerPlayers[j]
+        const allBetween = tMatches.filter(m =>
+          (m.player1_id === p1 && m.player2_id === p2) ||
+          (m.player1_id === p2 && m.player2_id === p1)
+        )
+        const tbMatch = allBetween.length > 1
+          ? [...allBetween].sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0]
+          : null
+        pairs.push({ p1, p2, match: tbMatch })
+      }
+    }
+    return pairs
+  })() : []
+
   const seedingLabel = {
     ranked_playoff: 'Playoff style (#1 vs #N)',
     ranked_similar: 'Similar ranking (#1 vs #2)',
@@ -665,10 +696,14 @@ export default function AdminTournamentDetail() {
                   {sortedByStandings.map((pid, i) => {
                     const s = standings[pid]
                     const total = (s?.wins ?? 0) + (s?.losses ?? 0)
+                    const isTied = allPairsPlayed && hasTie && tiedForFirst.includes(pid)
                     return (
                       <tr key={pid}>
                         <td className="pl-5 text-slate-600 text-xs font-mono">{i + 1}</td>
-                        <td className="font-medium text-slate-200">{nameOf(pid)}</td>
+                        <td className="font-medium text-slate-200">
+                          {nameOf(pid)}
+                          {isTied && <span className="ml-1.5 text-amber-500 text-xs font-normal">tied</span>}
+                        </td>
                         <td className="text-center win-text tabular-nums text-sm">{s?.wins ?? 0}</td>
                         <td className="text-center loss-text tabular-nums text-sm">{s?.losses ?? 0}</td>
                         <td className="text-right pr-5 text-slate-400 tabular-nums text-sm">
@@ -739,6 +774,66 @@ export default function AdminTournamentDetail() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Tiebreaker prompt */}
+          {allPairsPlayed && hasTie && !tiebreakerActive && (
+            <div className="card p-5 space-y-3 border-amber-900/50 bg-amber-950/20">
+              <p className="section-header text-amber-600">Tiebreaker Required</p>
+              <p className="text-slate-300 text-sm">
+                {tiedForFirst.map(pid => nameOf(pid)).join(' and ')} are tied for 1st place
+                with {topWins} win{topWins !== 1 ? 's' : ''} each.
+                Play a tiebreaker match to determine the final ranking.
+              </p>
+              <button
+                onClick={() => { setTiebreakerPlayers([...tiedForFirst]); setTiebreakerActive(true) }}
+                className="btn-primary text-sm py-1.5"
+              >
+                Activate Tiebreaker
+              </button>
+            </div>
+          )}
+
+          {/* Tiebreaker schedule */}
+          {tiebreakerActive && (
+            <div className="card p-5 space-y-3">
+              <p className="section-header">
+                Tiebreaker
+                <span className="text-slate-600 font-normal ml-2 text-xs">single elimination — click pending match to record</span>
+              </p>
+              <div className="divide-y divide-pool-border/40">
+                {tbPairs.map(({ p1, p2, match }) => {
+                  const done = !!match?.winner_id
+                  const games = [...(match?.games ?? [])].sort((a, b) => a.game_number - b.game_number)
+                  const s1 = games.filter(g => g.winner_id === p1).length
+                  const s2 = games.filter(g => g.winner_id === p2).length
+                  return (
+                    <div
+                      key={`tb-${p1}-${p2}`}
+                      className={`flex items-center justify-between py-2.5 ${!done ? 'cursor-pointer group' : ''}`}
+                      onClick={() => !done && setRrModal({ p1, p2 })}
+                    >
+                      <div className="text-sm">
+                        <span className={done && match.winner_id === p1 ? 'text-slate-100 font-semibold' : done ? 'text-slate-500' : 'text-slate-300 group-hover:text-slate-100 transition-colors'}>
+                          {nameOf(p1)}
+                        </span>
+                        <span className="text-slate-600 mx-2 font-mono text-xs">
+                          {done && games.length > 0 ? `${s1}–${s2}` : 'vs'}
+                        </span>
+                        <span className={done && match.winner_id === p2 ? 'text-slate-100 font-semibold' : done ? 'text-slate-500' : 'text-slate-300 group-hover:text-slate-100 transition-colors'}>
+                          {nameOf(p2)}
+                        </span>
+                      </div>
+                      {done ? (
+                        <span className="badge-green shrink-0">{nameOf(match.winner_id)} wins</span>
+                      ) : (
+                        <span className="text-slate-700 text-xs group-hover:text-slate-500 transition-colors">pending →</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </>

@@ -92,7 +92,10 @@ export default function Matches() {
                   <div className="flex items-center gap-3 text-xs text-slate-600">
                     <span>{formatDate(m.played_at)}</span>
                     <span>·</span>
-                    <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
+                    <span>{m.tournament
+                      ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
+                      : (isBo3 ? 'Best of 3' : 'Single game')
+                    }</span>
                     {m.tournament && (
                       <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-pool-elevated border border-pool-border text-slate-400">
                         {m.tournament.name}
