@@ -89,7 +89,9 @@ export default function Navbar() {
               )}
               <div className="flex items-center gap-2">
                 {linkedPlayerName && (
-                  <Avatar name={linkedPlayerName} src={linkedPlayerAvatar} size="sm" />
+                  <Link to="/account-settings" className="rounded-full ring-2 ring-transparent hover:ring-pool-accent transition-all">
+                    <Avatar name={linkedPlayerName} src={linkedPlayerAvatar} size="sm" />
+                  </Link>
                 )}
                 <button
                   onClick={handleSignOut}

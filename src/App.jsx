@@ -19,6 +19,7 @@ import ResetPassword from './pages/auth/ResetPassword'
 
 // Player pages
 import EnterResult from './pages/player/EnterResult'
+import AccountSettings from './pages/player/AccountSettings'
 
 // Admin pages
 import AdminLayout from './pages/admin/AdminLayout'
@@ -74,6 +75,14 @@ export default function App() {
                 element={
                   <ProtectedRoute requireRole="player">
                     <EnterResult />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="account-settings"
+                element={
+                  <ProtectedRoute requireRole="player">
+                    <AccountSettings />
                   </ProtectedRoute>
                 }
               />
