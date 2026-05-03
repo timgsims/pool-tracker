@@ -119,22 +119,18 @@ export default function Tournaments() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h2 className="font-bold text-slate-100 text-lg">{t.name}</h2>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                      <span>
+                    <div className="flex items-center justify-between gap-4 text-xs text-slate-500 mt-0.5">
+                      <span className="whitespace-nowrap">
                         {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', {
                           day: 'numeric', month: 'long', year: 'numeric',
                         })}
+                        {' · '}
+                        {isBracket ? 'Single Elimination' : 'Round Robin'}
                       </span>
-                      <span>·</span>
-                      <span>{isBracket ? 'Single Elimination' : 'Round Robin'}</span>
-                      <span>·</span>
-                      <span>{parts.length} players</span>
-                      {tMatches.length > 0 && (
-                        <>
-                          <span>·</span>
-                          <span>{tMatches.length} matches</span>
-                        </>
-                      )}
+                      <span className="whitespace-nowrap">
+                        {parts.length} players
+                        {tMatches.length > 0 && ` · ${tMatches.length} matches`}
+                      </span>
                     </div>
                   </div>
                   {winner && (

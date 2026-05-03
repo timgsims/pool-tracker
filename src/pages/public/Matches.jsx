@@ -96,11 +96,6 @@ export default function Matches() {
                       ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
                       : (isBo3 ? 'Best of 3' : 'Single game')
                     }</span>
-                    {m.tournament && (
-                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-pool-elevated border border-pool-border text-slate-400">
-                        {m.tournament.name}
-                      </span>
-                    )}
                   </div>
                   {m.winner && (
                     <span className="badge-green shrink-0">{n(m.winner.id)} wins</span>

@@ -503,7 +503,7 @@ export default function Home() {
         supabase
           .from('matches')
           .select(`
-            id, played_at, format,
+            id, played_at, format, tournament_id,
             player1:player1_id(id, name, avatar_url),
             player2:player2_id(id, name, avatar_url),
             winner:winner_id(id, name),
@@ -640,7 +640,10 @@ export default function Home() {
                       <div className="flex items-center gap-3 text-xs text-slate-600">
                         <span>{formatDate(m.played_at)}</span>
                         <span>·</span>
-                        <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
+                        <span>{m.tournament_id
+                          ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
+                          : (isBo3 ? 'Best of 3' : 'Single game')
+                        }</span>
                       </div>
                       {m.winner && (
                         <span className="badge-green shrink-0">{n(m.winner?.id)} wins</span>
