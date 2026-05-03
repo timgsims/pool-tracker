@@ -28,7 +28,7 @@ export default function EnterResult() {
   useEffect(() => {
     Promise.all([
       supabase.from('players').select('id, name').eq('active', true).order('name'),
-      supabase.from('tournaments').select('id, name, format').order('date', { ascending: false }).limit(20),
+      supabase.from('tournaments').select('id, name, format').eq('completed', false).order('date', { ascending: false }).limit(20),
     ]).then(([{ data: p }, { data: t }]) => {
       setPlayers(p ?? [])
       setTournaments(t ?? [])

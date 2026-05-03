@@ -11,7 +11,6 @@ export default function TournamentStats() {
   const [tournaments, setTournaments] = useState([])
   const [tournamentMatches, setTournamentMatches] = useState([])
   const [participants, setParticipants] = useState([])
-  const [rounds, setRounds] = useState([])
   const [nameMap, setNameMap] = useState({})
 
   useEffect(() => {
@@ -21,7 +20,6 @@ export default function TournamentStats() {
         { data: t },
         { data: m },
         { data: parts },
-        { data: r },
       ] = await Promise.all([
         supabase.from('players').select('id, name, avatar_url').eq('active', true),
         supabase.from('tournaments').select('id, name, date, format').order('date', { ascending: false }),
@@ -30,19 +28,13 @@ export default function TournamentStats() {
           .select('id, played_at, player1_id, player2_id, winner_id, tournament_id')
           .not('tournament_id', 'is', null)
           .not('winner_id', 'is', null),
-        supabase.from('tournament_participants').select('tournament_id, player_id'),
-        supabase
-          .from('tournament_rounds')
-          .select('tournament_id, round_number, position, player1_id, player2_id, winner_id, is_bye')
-          .not('winner_id', 'is', null)
-          .order('round_number', { ascending: false }),
+        supabase.from('tournament_participants').select('tournament_id, player_id, final_position'),
       ])
 
       setPlayers(p ?? [])
       setTournaments(t ?? [])
       setTournamentMatches(m ?? [])
       setParticipants(parts ?? [])
-      setRounds(r ?? [])
       setNameMap(buildDisplayNames(p ?? []))
       setLoading(false)
     }
@@ -75,21 +67,11 @@ export default function TournamentStats() {
     const tMatches = matchList.filter(m => m.tournament_id === t.id)
     const tParts = partList.filter(pa => pa.tournament_id === t.id)
 
-    // Determine winner
-    let winnerId = null
-    if (t.format === 'bracket') {
-      // Highest round_number match with a winner in this tournament (rounds sorted desc)
-      const tRounds = rounds.filter(r => r.tournament_id === t.id && !r.is_bye)
-      winnerId = tRounds[0]?.winner_id ?? null
-    } else {
-      // Round robin: most wins
-      const winCounts = {}
-      for (const m of tMatches) {
-        winCounts[m.winner_id] = (winCounts[m.winner_id] || 0) + 1
-      }
-      const sorted = Object.entries(winCounts).sort((a, b) => b[1] - a[1])
-      winnerId = sorted[0]?.[0] ?? null
-    }
+    // Complete only when every participant has a final_position assigned by the admin
+    const isComplete = tParts.length > 0 && tParts.every(tp => tp.final_position != null)
+    const winnerId = isComplete
+      ? (tParts.find(tp => tp.final_position === 1)?.player_id ?? null)
+      : null
 
     // Standings: per-participant wins/losses in this tournament
     const standings = tParts
@@ -102,7 +84,7 @@ export default function TournamentStats() {
       .filter(s => s.played > 0)
       .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
 
-    return { ...t, winnerId, standings }
+    return { ...t, winnerId, isComplete, standings }
   }).filter(t => t.standings.length > 0)
 
   const hasData = playerRecords.length > 0
@@ -183,11 +165,13 @@ export default function TournamentStats() {
                         {t.format === 'round_robin' ? 'Round Robin' : 'Bracket'}
                       </p>
                     </div>
-                    {t.winnerId && (
+                    {t.winnerId ? (
                       <div className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg bg-amber-900/20 border border-amber-700/40">
                         <span className="text-amber-400 text-sm">🏆</span>
                         <span className="text-amber-300 text-sm font-semibold">{n(t.winnerId)}</span>
                       </div>
+                    ) : (
+                      <span className="badge-gray shrink-0">In Progress</span>
                     )}
                   </div>
 

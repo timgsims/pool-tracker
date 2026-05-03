@@ -18,7 +18,7 @@ export default function AdminTournaments() {
     const [{ data: t }, { data: p }] = await Promise.all([
       supabase
         .from('tournaments')
-        .select('id, name, date, format, tournament_participants(player_id)')
+        .select('id, name, date, format, completed, tournament_participants(player_id)')
         .order('date', { ascending: false }),
       supabase.from('players').select('id, name').eq('active', true).order('name'),
     ])
@@ -128,7 +128,10 @@ export default function AdminTournaments() {
               <tr><td colSpan={5} className="text-center py-8 text-slate-600">No tournaments yet</td></tr>
             ) : tournaments.map(t => (
               <tr key={t.id}>
-                <td className="pl-5 font-medium text-slate-200">{t.name}</td>
+                <td className="pl-5 font-medium text-slate-200">
+                  <span>{t.name}</span>
+                  {t.completed && <span className="ml-2 badge-gray text-xs">Completed</span>}
+                </td>
                 <td className="text-slate-500 text-sm">
                   {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </td>

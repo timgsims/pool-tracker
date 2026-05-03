@@ -440,6 +440,12 @@ export default function AdminTournamentDetail() {
         .eq('tournament_id', id)
         .eq('player_id', pid)
     }
+    // Mark tournament completed only when every participant has a position assigned
+    const allSet = participantIds.length > 0 && participantIds.every(pid => {
+      const v = posMap[pid]
+      return v && parseInt(v, 10) > 0
+    })
+    await supabase.from('tournaments').update({ completed: allSet }).eq('id', id)
     setSavingPos(false)
     setEditingPos(false)
     load()
