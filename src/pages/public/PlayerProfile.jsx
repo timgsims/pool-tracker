@@ -64,6 +64,19 @@ function buildMonthlyForm(matches, playerId) {
   return months
 }
 
+function computeLongestStreaks(matches, playerId) {
+  let maxWin = 0, maxLoss = 0, curWin = 0, curLoss = 0
+  const sorted = [...matches].sort((a, b) => new Date(a.played_at) - new Date(b.played_at))
+  for (const m of sorted) {
+    if (!m.winner) continue
+    if (m.winner.id === playerId) { curWin++; curLoss = 0 }
+    else { curLoss++; curWin = 0 }
+    if (curWin > maxWin) maxWin = curWin
+    if (curLoss > maxLoss) maxLoss = curLoss
+  }
+  return { longestWin: maxWin, longestLoss: maxLoss }
+}
+
 function computeH2H(matches, playerId) {
   const opponents = {}
   for (const m of matches) {
@@ -114,6 +127,7 @@ export default function PlayerProfile() {
   const [nameMap, setNameMap] = useState({})
   const [lastTen, setLastTen] = useState([])
   const [favOpponent, setFavOpponent] = useState(null)
+  const [longestStreaks, setLongestStreaks] = useState({ longestWin: 0, longestLoss: 0 })
   const [activeSeason, setActiveSeason] = useState(null)
   const [seasonStats, setSeasonStats] = useState(null)
   const [trophies, setTrophies] = useState([])
@@ -182,16 +196,17 @@ export default function PlayerProfile() {
       setTrophies(wonSeasons ?? [])
       setTournamentRecord(tTotal > 0 ? { entered: tEntered, wins: tWins, losses: tLosses, winRate: tWins / tTotal } : null)
       setAllMatches(matches)
-      setStreak(computeStreak(regularMatches, id))
-      setComebacks(computeComebacks(regularMatches, id))
-      setMonthlyForm(buildMonthlyForm(regularMatches, id))
+      setStreak(computeStreak(matches, id))
+      setComebacks(computeComebacks(matches, id))
+      setMonthlyForm(buildMonthlyForm(matches, id))
       const regularH2H = computeH2H(regularMatches, id)
       setH2H(regularH2H)
       const tournH2H = computeH2H(tournamentMatches, id)
       setTournamentH2H(tournH2H)
       setNameMap(buildDisplayNames(allPlayers ?? []))
+      setLongestStreaks(computeLongestStreaks(matches, id))
 
-      const ten = regularMatches.filter(m => m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
+      const ten = matches.filter(m => m.format === 'best_of_3' && m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
       setLastTen(ten)
 
       const fav = regularH2H
@@ -350,6 +365,20 @@ export default function PlayerProfile() {
               value={comebacks}
               sub="Won after losing game 1"
             />
+            {longestStreaks.longestWin > 0 && (
+              <StatCard
+                label="Best Win Streak"
+                value={longestStreaks.longestWin}
+                sub="All time"
+              />
+            )}
+            {longestStreaks.longestLoss > 0 && (
+              <StatCard
+                label="Worst Loss Streak"
+                value={longestStreaks.longestLoss}
+                sub="All time"
+              />
+            )}
             <StatCard
               label="Total Matches"
               value={allMatches.filter(m => m.winner).length}
@@ -364,10 +393,10 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Last 10 results */}
+      {/* Last 10 Bo3 results */}
       {lastTen.length > 0 && (
         <div>
-          <p className="section-header">Last {lastTen.length} Results</p>
+          <p className="section-header">Last {lastTen.length} Bo3 Results</p>
           <div className="card p-4">
             <div className="flex gap-1">
               {lastTen.map((r, i) => (
