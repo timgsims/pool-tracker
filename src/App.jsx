@@ -11,6 +11,7 @@ import PlayerProfile from './pages/public/PlayerProfile'
 import Stats from './pages/public/Stats'
 import Players from './pages/public/Players'
 import TournamentStats from './pages/public/TournamentStats'
+import Rules from './pages/public/Rules'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -30,6 +31,7 @@ import AdminMatches from './pages/admin/Matches'
 import AdminTournaments from './pages/admin/Tournaments'
 import AdminTournamentDetail from './pages/admin/TournamentDetail'
 import AdminSeasons from './pages/admin/Seasons'
+import AdminRules from './pages/admin/Rules'
 
 function ProfileSetupGuard({ children }) {
   const { isAuthenticated, linkedPlayerId, role, loading, recoveryMode } = useAuth()
@@ -62,6 +64,7 @@ export default function App() {
               <Route path="matches" element={<Matches />} />
               <Route path="tournaments" element={<Tournaments />} />
               <Route path="tournament-stats" element={<TournamentStats />} />
+              <Route path="rules" element={<Rules />} />
               <Route path="player/:id" element={<PlayerProfile />} />
               <Route path="stats" element={<Stats />} />
               <Route path="players" element={<Players />} />
@@ -103,6 +106,7 @@ export default function App() {
                 <Route path="tournaments" element={<AdminTournaments />} />
                 <Route path="tournaments/:id" element={<AdminTournamentDetail />} />
                 <Route path="seasons" element={<AdminSeasons />} />
+                <Route path="rules" element={<AdminRules />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />
