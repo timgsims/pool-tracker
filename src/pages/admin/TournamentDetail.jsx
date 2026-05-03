@@ -29,6 +29,24 @@ function computeStandings(participantIds, matches) {
   return stats
 }
 
+// Tiebreaker pairs: only matches played AFTER tiebreaker was activated count
+function computeTbPairs(playerIds, matches, activatedAt) {
+  const pairs = []
+  for (let i = 0; i < playerIds.length; i++) {
+    for (let j = i + 1; j < playerIds.length; j++) {
+      const p1 = playerIds[i], p2 = playerIds[j]
+      const tbMatch = matches
+        .filter(m =>
+          ((m.player1_id === p1 && m.player2_id === p2) || (m.player1_id === p2 && m.player2_id === p1)) &&
+          (!activatedAt || new Date(m.played_at) > new Date(activatedAt))
+        )
+        .sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0] ?? null
+      pairs.push({ p1, p2, match: tbMatch })
+    }
+  }
+  return pairs
+}
+
 // Standard playoff bracket seeding: #1 vs #N, #4 vs #5, #2 vs #7, #3 vs #6, etc.
 function playoffMatchups(bracketSize) {
   if (bracketSize === 2) return [[1, 2]]
@@ -150,6 +168,7 @@ export default function AdminTournamentDetail() {
   // Round-robin tiebreaker
   const [tiebreakerActive, setTiebreakerActive] = useState(false)
   const [tiebreakerPlayers, setTiebreakerPlayers] = useState([])
+  const [tiebreakerActivatedAt, setTiebreakerActivatedAt] = useState(null)
 
   // Final positions
   const [editingPos, setEditingPos] = useState(false)
@@ -158,7 +177,7 @@ export default function AdminTournamentDetail() {
 
   const load = async () => {
     const [{ data: t }, { data: p }, { data: parts }, { data: m }, { data: br }] = await Promise.all([
-      supabase.from('tournaments').select('id, name, date, format, seeding').eq('id', id).single(),
+      supabase.from('tournaments').select('id, name, date, format, seeding, tiebreaker_players, tiebreaker_activated_at').eq('id', id).single(),
       supabase.from('players').select('id, name').eq('active', true).order('name'),
       supabase
         .from('tournament_participants')
@@ -185,6 +204,16 @@ export default function AdminTournamentDetail() {
     setParticipants(parts ?? [])
     setTMatches(m ?? [])
     setBracketRounds(br ?? [])
+    // Restore tiebreaker state from DB
+    if (t?.tiebreaker_players?.length) {
+      setTiebreakerPlayers(t.tiebreaker_players)
+      setTiebreakerActive(true)
+      setTiebreakerActivatedAt(t.tiebreaker_activated_at ?? null)
+    } else {
+      setTiebreakerActive(false)
+      setTiebreakerPlayers([])
+      setTiebreakerActivatedAt(null)
+    }
     setLoading(false)
   }
 
@@ -237,7 +266,7 @@ export default function AdminTournamentDetail() {
     // Auto-fill final positions when all RR pairs are now complete
     const { data: freshMatches } = await supabase
       .from('matches')
-      .select('player1_id, player2_id, winner_id')
+      .select('player1_id, player2_id, winner_id, played_at')
       .eq('tournament_id', id)
       .not('winner_id', 'is', null)
 
@@ -254,18 +283,53 @@ export default function AdminTournamentDetail() {
       return participantIds.length >= 2
     })()
 
-    if (allPairsPlayed) {
-      const freshStandings = computeStandings(participantIds, freshMatches ?? [])
+    const autoFillFromStandings = async (matches) => {
+      const s = computeStandings(participantIds, matches)
       const sorted = [...participantIds].sort((a, b) => {
-        const wa = freshStandings[a]?.wins ?? 0, wb = freshStandings[b]?.wins ?? 0
+        const wa = s[a]?.wins ?? 0, wb = s[b]?.wins ?? 0
         if (wb !== wa) return wb - wa
-        return (freshStandings[a]?.losses ?? 0) - (freshStandings[b]?.losses ?? 0)
+        return (s[a]?.losses ?? 0) - (s[b]?.losses ?? 0)
       })
       for (const [i, pid] of sorted.entries()) {
         await supabase.from('tournament_participants')
           .update({ final_position: i + 1 })
           .eq('tournament_id', id)
           .eq('player_id', pid)
+      }
+      await supabase.from('tournaments').update({ completed: true }).eq('id', id)
+    }
+
+    if (allPairsPlayed && !tiebreakerActive) {
+      // Check for ties before auto-filling
+      const freshStandings = computeStandings(participantIds, freshMatches ?? [])
+      const maxW = Math.max(...participantIds.map(pid => freshStandings[pid]?.wins ?? 0))
+      const tiedGroup = participantIds.filter(pid => (freshStandings[pid]?.wins ?? 0) === maxW)
+      if (tiedGroup.length < 2) {
+        await autoFillFromStandings(freshMatches ?? [])
+      }
+      // If tie: don't auto-fill — tiebreaker prompt will appear
+    }
+
+    // Tiebreaker chaining: check after every save when tiebreaker is active
+    if (tiebreakerActive && tiebreakerPlayers.length >= 2) {
+      const freshTbPairs = computeTbPairs(tiebreakerPlayers, freshMatches ?? [], tiebreakerActivatedAt)
+      const allTbDone = freshTbPairs.length > 0 && freshTbPairs.every(p => p.match?.winner_id)
+      if (allTbDone) {
+        const tbStats = {}
+        for (const pid of tiebreakerPlayers) tbStats[pid] = 0
+        for (const { match } of freshTbPairs) {
+          if (match?.winner_id && tbStats[match.winner_id] !== undefined) tbStats[match.winner_id]++
+        }
+        const maxTbW = Math.max(...tiebreakerPlayers.map(pid => tbStats[pid]))
+        const stillTied = tiebreakerPlayers.filter(pid => tbStats[pid] === maxTbW)
+        if (stillTied.length >= 2) {
+          // Cycle: chain to next tiebreaker round with only the still-tied players
+          await activateTiebreaker(stillTied)
+        } else {
+          // Resolved: clear tiebreaker and auto-fill positions
+          await deactivateTiebreaker()
+          await autoFillFromStandings(freshMatches ?? [])
+        }
       }
     }
 
@@ -277,6 +341,29 @@ export default function AdminTournamentDetail() {
     if (!confirm('Remove this match from the tournament? The result stays in overall history.')) return
     await supabase.from('matches').update({ tournament_id: null }).eq('id', matchId)
     load()
+  }
+
+  // ── Tiebreaker management ───────────────────────────────────────────────────
+
+  const activateTiebreaker = async (players) => {
+    const now = new Date().toISOString()
+    await supabase.from('tournaments').update({
+      tiebreaker_players: players,
+      tiebreaker_activated_at: now,
+    }).eq('id', id)
+    setTiebreakerPlayers(players)
+    setTiebreakerActive(true)
+    setTiebreakerActivatedAt(now)
+  }
+
+  const deactivateTiebreaker = async () => {
+    await supabase.from('tournaments').update({
+      tiebreaker_players: null,
+      tiebreaker_activated_at: null,
+    }).eq('id', id)
+    setTiebreakerActive(false)
+    setTiebreakerPlayers([])
+    setTiebreakerActivatedAt(null)
   }
 
   // ── Bracket generation ──────────────────────────────────────────────────────
@@ -496,23 +583,9 @@ export default function AdminTournamentDetail() {
     : []
   const hasTie = tiedForFirst.length >= 2
 
-  const tbPairs = tiebreakerActive ? (() => {
-    const pairs = []
-    for (let i = 0; i < tiebreakerPlayers.length; i++) {
-      for (let j = i + 1; j < tiebreakerPlayers.length; j++) {
-        const p1 = tiebreakerPlayers[i], p2 = tiebreakerPlayers[j]
-        const allBetween = tMatches.filter(m =>
-          (m.player1_id === p1 && m.player2_id === p2) ||
-          (m.player1_id === p2 && m.player2_id === p1)
-        )
-        const tbMatch = allBetween.length > 1
-          ? [...allBetween].sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0]
-          : null
-        pairs.push({ p1, p2, match: tbMatch })
-      }
-    }
-    return pairs
-  })() : []
+  const tbPairs = tiebreakerActive
+    ? computeTbPairs(tiebreakerPlayers, tMatches, tiebreakerActivatedAt)
+    : []
 
   const seedingLabel = {
     ranked_playoff: 'Playoff style (#1 vs #N)',
@@ -793,7 +866,7 @@ export default function AdminTournamentDetail() {
                 Play a tiebreaker match to determine the final ranking.
               </p>
               <button
-                onClick={() => { setTiebreakerPlayers([...tiedForFirst]); setTiebreakerActive(true) }}
+                onClick={() => activateTiebreaker([...tiedForFirst])}
                 className="btn-primary text-sm py-1.5"
               >
                 Activate Tiebreaker

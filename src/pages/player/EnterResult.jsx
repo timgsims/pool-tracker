@@ -57,7 +57,7 @@ export default function EnterResult() {
         .select('player_id, player:player_id(id, name)')
         .eq('tournament_id', tournamentId),
       supabase.from('matches')
-        .select('id, player1_id, player2_id, winner_id')
+        .select('id, player1_id, player2_id, winner_id, played_at')
         .eq('tournament_id', tournamentId)
         .not('winner_id', 'is', null),
       supabase.from('tournament_rounds')
@@ -65,8 +65,19 @@ export default function EnterResult() {
         .eq('tournament_id', tournamentId)
         .order('round_number')
         .order('position'),
-    ]).then(([{ data: parts }, { data: matches }, { data: rounds }]) => {
-      setTournamentData({ format, participants: parts ?? [], matches: matches ?? [], rounds: rounds ?? [] })
+      supabase.from('tournaments')
+        .select('tiebreaker_players, tiebreaker_activated_at')
+        .eq('id', tournamentId)
+        .single(),
+    ]).then(([{ data: parts }, { data: matches }, { data: rounds }, { data: tb }]) => {
+      setTournamentData({
+        format,
+        participants: parts ?? [],
+        matches: matches ?? [],
+        rounds: rounds ?? [],
+        tiebreakerPlayers: tb?.tiebreaker_players ?? null,
+        tiebreakerActivatedAt: tb?.tiebreaker_activated_at ?? null,
+      })
       setLoadingSchedule(false)
     })
   }, [tournamentId])
@@ -74,7 +85,7 @@ export default function EnterResult() {
   // Compute schedule pairs for display
   const schedulePairs = (() => {
     if (!tournamentData) return []
-    const { format, participants, matches, rounds } = tournamentData
+    const { format, participants, matches, rounds, tiebreakerPlayers, tiebreakerActivatedAt } = tournamentData
     const pIds = participants.map(p => p.player_id)
     if (format === 'round_robin') {
       const pairs = []
@@ -86,6 +97,19 @@ export default function EnterResult() {
             (m.player1_id === p2 && m.player2_id === p1)
           ))
           pairs.push({ p1, p2, done })
+        }
+      }
+      // Append any pending tiebreaker pairs
+      if (tiebreakerPlayers?.length >= 2) {
+        for (let i = 0; i < tiebreakerPlayers.length; i++) {
+          for (let j = i + 1; j < tiebreakerPlayers.length; j++) {
+            const p1 = tiebreakerPlayers[i], p2 = tiebreakerPlayers[j]
+            const tbDone = !!(matches.find(m =>
+              ((m.player1_id === p1 && m.player2_id === p2) || (m.player1_id === p2 && m.player2_id === p1)) &&
+              (!tiebreakerActivatedAt || new Date(m.played_at) > new Date(tiebreakerActivatedAt))
+            ))
+            if (!tbDone) pairs.push({ p1, p2, done: false, isTiebreaker: true })
+          }
         }
       }
       return pairs
@@ -239,17 +263,20 @@ export default function EnterResult() {
               <p className="text-slate-600 text-sm">No pending matches for this tournament.</p>
             ) : (
               <div className="divide-y divide-pool-border/40">
-                {schedulePairs.map(({ p1, p2, done }) => {
+                {schedulePairs.map(({ p1, p2, done, isTiebreaker }) => {
                   const isSelected = selectedMatchup?.p1 === p1 && selectedMatchup?.p2 === p2
                   return (
                     <div
-                      key={`${p1}-${p2}`}
+                      key={`${isTiebreaker ? 'tb' : 'rr'}-${p1}-${p2}`}
                       onClick={() => !done && selectMatchup(p1, p2)}
                       className={`flex items-center justify-between py-2.5 ${
                         done ? 'opacity-40' : 'cursor-pointer group'
                       }`}
                     >
                       <div className="flex items-center gap-2 text-sm">
+                        {isTiebreaker && (
+                          <span className="text-amber-500 text-xs font-medium shrink-0">TB</span>
+                        )}
                         <span className={
                           isSelected ? 'text-pool-accent font-semibold'
                           : done ? 'text-slate-500'
