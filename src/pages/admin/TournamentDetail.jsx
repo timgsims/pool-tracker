@@ -151,6 +151,10 @@ export default function AdminTournamentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Name editor
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+
   // Participants editor
   const [editingParts, setEditingParts] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
@@ -340,6 +344,24 @@ export default function AdminTournamentDetail() {
   const removeMatch = async matchId => {
     if (!confirm('Remove this match from the tournament? The result stays in overall history.')) return
     await supabase.from('matches').update({ tournament_id: null }).eq('id', matchId)
+    load()
+  }
+
+  const saveName = async () => {
+    if (!nameInput.trim()) return
+    await supabase.from('tournaments').update({ name: nameInput.trim() }).eq('id', id)
+    setEditingName(false)
+    load()
+  }
+
+  const removeTbMatch = async matchId => {
+    if (!confirm('Remove this tiebreaker result? The tournament will be marked in-progress and the tiebreaker will need to be re-activated.')) return
+    await supabase.from('matches').update({ tournament_id: null }).eq('id', matchId)
+    await supabase.from('tournaments').update({
+      completed: false,
+      tiebreaker_players: null,
+      tiebreaker_activated_at: null,
+    }).eq('id', id)
     load()
   }
 
@@ -578,12 +600,21 @@ export default function AdminTournamentDetail() {
     }
   }
 
+  // Separate regular matches from tiebreaker matches using the activation timestamp
+  const tbActivatedAt = tournament?.tiebreaker_activated_at ?? null
+  const regularTMatches = tbActivatedAt
+    ? tMatches.filter(m => !m.created_at || new Date(m.created_at) <= new Date(tbActivatedAt))
+    : tMatches
+  const tbMatchesDisplay = (tbActivatedAt && tournament?.completed)
+    ? tMatches.filter(m => m.created_at && new Date(m.created_at) > new Date(tbActivatedAt))
+    : []
+
   // Round-robin: compute all pairs and find completed ones
   const rrPairs = []
   for (let i = 0; i < participantIds.length; i++) {
     for (let j = i + 1; j < participantIds.length; j++) {
       const p1 = participantIds[i], p2 = participantIds[j]
-      const match = tMatches.find(m =>
+      const match = regularTMatches.find(m =>
         (m.player1_id === p1 && m.player2_id === p2) ||
         (m.player1_id === p2 && m.player2_id === p1)
       )
@@ -591,7 +622,7 @@ export default function AdminTournamentDetail() {
     }
   }
   const rrComplete = rrPairs.filter(p => p.match?.winner_id).length
-  const standings = computeStandings(participantIds, tMatches)
+  const standings = computeStandings(participantIds, regularTMatches)
   const sortedByStandings = [...participantIds].sort((a, b) => {
     const wa = standings[a]?.wins ?? 0, wb = standings[b]?.wins ?? 0
     if (wb !== wa) return wb - wa
@@ -624,7 +655,29 @@ export default function AdminTournamentDetail() {
         <Link to="/admin/tournaments" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
           ← All tournaments
         </Link>
-        <h1 className="text-2xl font-bold text-slate-100 mt-2">{tournament.name}</h1>
+        {editingName ? (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              className="input text-xl font-bold py-1 flex-1"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+              autoFocus
+            />
+            <button onClick={saveName} className="btn-primary text-sm py-1.5 shrink-0">Save</button>
+            <button onClick={() => setEditingName(false)} className="btn-secondary text-sm py-1.5 shrink-0">Cancel</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 mt-2">
+            <h1 className="text-2xl font-bold text-slate-100">{tournament.name}</h1>
+            <button
+              onClick={() => { setNameInput(tournament.name); setEditingName(true) }}
+              className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+            >
+              Edit name
+            </button>
+          </div>
+        )}
         <p className="text-slate-500 text-sm mt-0.5">
           {new Date(tournament.date + 'T12:00:00').toLocaleDateString('en-GB', {
             day: 'numeric', month: 'long', year: 'numeric',
@@ -899,6 +952,44 @@ export default function AdminTournamentDetail() {
           )}
 
           {/* Tiebreaker schedule */}
+          {/* Tiebreaker results — completed tournaments only */}
+          {tbMatchesDisplay.length > 0 && (
+            <div className="card p-5 space-y-3">
+              <p className="section-header">Tiebreaker Results</p>
+              <div className="divide-y divide-pool-border/40">
+                {tbMatchesDisplay.map(match => {
+                  const games = [...(match?.games ?? [])].sort((a, b) => a.game_number - b.game_number)
+                  const s1 = games.filter(g => g.winner_id === match.player1_id).length
+                  const s2 = games.filter(g => g.winner_id === match.player2_id).length
+                  return (
+                    <div key={match.id} className="flex items-center justify-between py-2.5">
+                      <div className="text-sm">
+                        <span className={match.winner_id === match.player1_id ? 'text-slate-100 font-semibold' : 'text-slate-500'}>
+                          {nameOf(match.player1_id)}
+                        </span>
+                        <span className="text-slate-600 mx-2 font-mono text-xs">
+                          {games.length > 0 ? `${s1}–${s2}` : 'vs'}
+                        </span>
+                        <span className={match.winner_id === match.player2_id ? 'text-slate-100 font-semibold' : 'text-slate-500'}>
+                          {nameOf(match.player2_id)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="badge-green">{nameOf(match.winner_id)} wins</span>
+                        <button
+                          onClick={() => removeTbMatch(match.id)}
+                          className="text-red-700 hover:text-red-500 text-xs transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {tiebreakerActive && (
             <div className="card p-5 space-y-3">
               <p className="section-header">

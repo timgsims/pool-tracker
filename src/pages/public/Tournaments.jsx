@@ -27,7 +27,7 @@ export default function Tournaments() {
       supabase
         .from('tournaments')
         .select(`
-          id, name, date, format, seeding,
+          id, name, date, created_at, tiebreaker_activated_at, format, seeding,
           tournament_participants(
             player_id, final_position,
             player:player_id(id, name)
@@ -36,7 +36,7 @@ export default function Tournaments() {
         .order('date', { ascending: false }),
       supabase
         .from('matches')
-        .select('id, tournament_id, player1_id, player2_id, winner_id')
+        .select('id, tournament_id, player1_id, player2_id, winner_id, played_at')
         .not('tournament_id', 'is', null),
       supabase
         .from('tournament_rounds')
@@ -82,7 +82,18 @@ export default function Tournaments() {
         </div>
       ) : (
         <div className="space-y-4">
-          {tournaments.map(t => {
+          {[...tournaments].sort((a, b) => {
+            const latestKey = t => {
+              const matches = matchesByTournament[t.id] ?? []
+              const candidates = [
+                ...matches.map(m => m.played_at),
+                t.tiebreaker_activated_at,
+                t.created_at,
+              ].filter(Boolean)
+              return candidates.sort().reverse()[0] ?? ''
+            }
+            return latestKey(b).localeCompare(latestKey(a))
+          }).map(t => {
             const parts = [...(t.tournament_participants ?? [])]
             const tMatches = matchesByTournament[t.id] ?? []
             const tRounds = roundsByTournament[t.id] ?? []

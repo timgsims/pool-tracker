@@ -60,9 +60,9 @@ BEGIN
 
   UPDATE tournaments
   SET
-    completed              = true,
-    tiebreaker_players     = null,
-    tiebreaker_activated_at = null
+    completed          = true,
+    tiebreaker_players = null
+    -- tiebreaker_activated_at is kept so the admin page can identify tiebreaker matches after completion
   WHERE id = p_tournament_id;
 END;
 $$;
