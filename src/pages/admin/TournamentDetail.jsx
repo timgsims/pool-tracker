@@ -181,7 +181,7 @@ export default function AdminTournamentDetail() {
 
   const load = async () => {
     const [{ data: t }, { data: p }, { data: parts }, { data: m }, { data: br }] = await Promise.all([
-      supabase.from('tournaments').select('id, name, date, format, seeding, tiebreaker_players, tiebreaker_activated_at').eq('id', id).single(),
+      supabase.from('tournaments').select('id, name, date, format, seeding, completed, tiebreaker_players, tiebreaker_activated_at').eq('id', id).single(),
       supabase.from('players').select('id, name').eq('active', true).order('name'),
       supabase
         .from('tournament_participants')
@@ -934,7 +934,7 @@ export default function AdminTournamentDetail() {
           )}
 
           {/* Tiebreaker prompt */}
-          {allPairsPlayed && hasTie && !tiebreakerActive && (
+          {allPairsPlayed && hasTie && !tiebreakerActive && !tournament?.completed && (
             <div className="card p-5 space-y-3 border-amber-900/50 bg-amber-950/20">
               <p className="section-header text-amber-600">Tiebreaker Required</p>
               <p className="text-slate-300 text-sm">

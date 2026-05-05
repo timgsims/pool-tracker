@@ -83,6 +83,7 @@ export default function Tournaments() {
       ) : (
         <div className="space-y-4">
           {[...tournaments].sort((a, b) => {
+            const isComplete = t => t.tournament_participants?.some(p => p.final_position === 1)
             const latestKey = t => {
               const matches = matchesByTournament[t.id] ?? []
               const candidates = [
@@ -92,6 +93,9 @@ export default function Tournaments() {
               ].filter(Boolean)
               return candidates.sort().reverse()[0] ?? ''
             }
+            const ac = isComplete(a) ? 1 : 0
+            const bc = isComplete(b) ? 1 : 0
+            if (ac !== bc) return ac - bc
             return latestKey(b).localeCompare(latestKey(a))
           }).map(t => {
             const parts = [...(t.tournament_participants ?? [])]
