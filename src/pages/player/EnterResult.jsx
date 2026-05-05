@@ -210,8 +210,8 @@ export default function EnterResult() {
     return players.find(p => p.id === pid)?.name ?? ''
   }
 
-  const selectMatchup = (p1, p2) => {
-    setSelectedMatchup({ p1, p2 })
+  const selectMatchup = (p1, p2, isTb = false) => {
+    setSelectedMatchup({ p1, p2, isTiebreaker: isTb })
     setPlayer1Id(p1)
     setPlayer2Id(p2)
     setGames([null, null, null])
@@ -429,11 +429,11 @@ export default function EnterResult() {
                 {schedulePairs.length > 0 && (
                   <div className="divide-y divide-pool-border/40">
                     {schedulePairs.map(({ p1, p2, done, isTiebreaker }) => {
-                      const isSelected = selectedMatchup?.p1 === p1 && selectedMatchup?.p2 === p2
+                      const isSelected = selectedMatchup?.p1 === p1 && selectedMatchup?.p2 === p2 && !!selectedMatchup?.isTiebreaker === !!isTiebreaker
                       return (
                         <div
                           key={`${isTiebreaker ? 'tb' : 'rr'}-${p1}-${p2}`}
-                          onClick={() => !done && selectMatchup(p1, p2)}
+                          onClick={() => !done && selectMatchup(p1, p2, !!isTiebreaker)}
                           className={`flex items-center justify-between py-2.5 ${
                             done ? 'opacity-40' : 'cursor-pointer group'
                           }`}

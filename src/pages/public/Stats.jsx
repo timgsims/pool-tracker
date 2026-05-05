@@ -127,7 +127,7 @@ function LastTenBadges({ results, size = 'md' }) {
   const dim = size === 'sm' ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'
   if (!results.length) return <span className="text-slate-600 text-xs">—</span>
   return (
-    <div className="flex gap-0.5 flex-wrap">
+    <div className="flex gap-0.5">
       {results.map((r, i) => (
         <span
           key={i}
@@ -299,21 +299,21 @@ export default function Stats() {
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
-                  <col />
+                  <col className="w-36" />
                   <col className="w-14" />
-                  <col className="w-14" />
-                  <col className="w-20" />
+                  <col className="w-16" />
+                  <col className="w-16" />
                   <col className="w-24 hidden sm:table-column" />
-                  <col className="w-44 hidden sm:table-column" />
+                  <col className="w-56" />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="pl-5 text-left">Player</th>
+                    <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">Player</th>
                     <th className="text-center">Played</th>
                     <th className="text-center">Win %</th>
                     <th className="text-center">Best</th>
                     <th className="text-right hidden sm:table-cell">Last Played</th>
-                    <th className="text-right pr-5 hidden sm:table-cell">Last 10</th>
+                    <th className="text-right pr-5">Last 10</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,7 +335,7 @@ export default function Stats() {
 
                     return (
                       <tr key={p.id}>
-                        <td className="pl-5">
+                        <td className="pl-5 sticky left-0 bg-pool-card z-10">
                           <Link
                             to={`/player/${p.id}`}
                             className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
@@ -352,7 +352,7 @@ export default function Stats() {
                           {best.label}
                         </td>
                         <td className="text-right text-slate-500 text-xs hidden sm:table-cell">{lastStr}</td>
-                        <td className="text-right pr-5 hidden sm:table-cell">
+                        <td className="text-right pr-5">
                           <div className="flex gap-0.5 justify-end">
                             <LastTenBadges results={s.lastTen} size="sm" />
                           </div>
