@@ -29,7 +29,7 @@ function computeStandings(participantIds, matches) {
   return stats
 }
 
-// Tiebreaker pairs: only matches played AFTER tiebreaker was activated count
+// Tiebreaker pairs: only matches created AFTER tiebreaker was activated count
 function computeTbPairs(playerIds, matches, activatedAt) {
   const pairs = []
   for (let i = 0; i < playerIds.length; i++) {
@@ -38,9 +38,9 @@ function computeTbPairs(playerIds, matches, activatedAt) {
       const tbMatch = matches
         .filter(m =>
           ((m.player1_id === p1 && m.player2_id === p2) || (m.player1_id === p2 && m.player2_id === p1)) &&
-          (!activatedAt || new Date(m.played_at) >= new Date(activatedAt))
+          (!activatedAt || new Date(m.created_at) > new Date(activatedAt))
         )
-        .sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0] ?? null
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] ?? null
       pairs.push({ p1, p2, match: tbMatch })
     }
   }
@@ -186,7 +186,7 @@ export default function AdminTournamentDetail() {
       supabase
         .from('matches')
         .select(`
-          id, played_at, winner_id, player1_id, player2_id,
+          id, played_at, created_at, winner_id, player1_id, player2_id,
           player1:player1_id(id, name), player2:player2_id(id, name),
           games(game_number, winner_id)
         `)
@@ -266,7 +266,7 @@ export default function AdminTournamentDetail() {
     // Auto-fill final positions when all RR pairs are now complete
     const { data: freshMatches } = await supabase
       .from('matches')
-      .select('player1_id, player2_id, winner_id, played_at')
+      .select('player1_id, player2_id, winner_id, played_at, created_at')
       .eq('tournament_id', id)
       .not('winner_id', 'is', null)
 
@@ -346,10 +346,7 @@ export default function AdminTournamentDetail() {
   // ── Tiebreaker management ───────────────────────────────────────────────────
 
   const activateTiebreaker = async (players) => {
-    // Truncate to minute start — matches nzLocalToISO(nowNZLocal()) minute precision
-    const d = new Date()
-    d.setSeconds(0, 0)
-    const now = d.toISOString()
+    const now = new Date().toISOString()
     await supabase.from('tournaments').update({
       tiebreaker_players: players,
       tiebreaker_activated_at: now,

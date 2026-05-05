@@ -119,11 +119,13 @@ export default function Tournaments() {
                 <div className="mb-3">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="font-bold text-slate-100 text-lg leading-tight">{t.name}</h2>
-                    {winner && (
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-slate-600 mb-0.5">Winner</p>
-                        <p className="font-bold text-pool-accent text-sm">🏆 {winner.player?.name}</p>
+                    {winner ? (
+                      <div className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg bg-amber-900/20 border border-amber-700/40">
+                        <span className="text-amber-400 text-sm">🏆</span>
+                        <span className="text-amber-300 text-sm font-semibold">{winner.player?.name}</span>
                       </div>
+                    ) : (
+                      <span className="badge-gray shrink-0">In Progress</span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-0.5">

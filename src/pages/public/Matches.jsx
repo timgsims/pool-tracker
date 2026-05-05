@@ -33,7 +33,8 @@ export default function Matches() {
           tournament:tournament_id(name),
           games(game_number, winner_id)
         `)
-        .order('played_at', { ascending: false }),
+        .order('played_at', { ascending: false })
+        .order('created_at', { ascending: false }),
       supabase
         .from('players')
         .select('id, name'),

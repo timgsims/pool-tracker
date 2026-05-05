@@ -9,7 +9,7 @@
 -- Allow players to set/chain the tiebreaker on a tournament
 CREATE OR REPLACE FUNCTION activate_tournament_tiebreaker(
   p_tournament_id uuid,
-  p_player_ids    uuid[]
+  p_player_ids    jsonb
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -23,7 +23,7 @@ BEGIN
   UPDATE tournaments
   SET
     tiebreaker_players     = p_player_ids,
-    tiebreaker_activated_at = date_trunc('minute', NOW())
+    tiebreaker_activated_at = NOW()
   WHERE id = p_tournament_id
     AND completed = false;
 END;
@@ -147,10 +147,10 @@ BEGIN
     RAISE EXCEPTION 'Access denied: admin only';
   END IF;
 
-  DELETE FROM tournament_rounds;
-  DELETE FROM games;
-  DELETE FROM matches;
-  DELETE FROM tournament_participants;
-  DELETE FROM tournaments;
+  DELETE FROM tournament_rounds    WHERE true;
+  DELETE FROM games                WHERE true;
+  DELETE FROM matches              WHERE true;
+  DELETE FROM tournament_participants WHERE true;
+  DELETE FROM tournaments          WHERE true;
 END;
 $$;

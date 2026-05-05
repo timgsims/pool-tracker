@@ -510,6 +510,7 @@ export default function Home() {
             games(game_number, winner_id)
           `)
           .order('played_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(8),
 
         supabase

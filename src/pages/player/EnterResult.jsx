@@ -26,9 +26,9 @@ function computeTbPairs(playerIds, matches, activatedAt) {
       const tbMatch = matches
         .filter(m =>
           ((m.player1_id === p1 && m.player2_id === p2) || (m.player1_id === p2 && m.player2_id === p1)) &&
-          (!activatedAt || new Date(m.played_at) >= new Date(activatedAt))
+          (!activatedAt || new Date(m.created_at) > new Date(activatedAt))
         )
-        .sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0] ?? null
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] ?? null
       pairs.push({ p1, p2, match: tbMatch })
     }
   }
@@ -103,7 +103,7 @@ export default function EnterResult() {
         .select('player_id, player:player_id(id, name)')
         .eq('tournament_id', tournamentId),
       supabase.from('matches')
-        .select('id, player1_id, player2_id, winner_id, played_at')
+        .select('id, player1_id, player2_id, winner_id, played_at, created_at')
         .eq('tournament_id', tournamentId)
         .not('winner_id', 'is', null),
       supabase.from('tournament_rounds')
@@ -184,9 +184,7 @@ export default function EnterResult() {
   const handleActivateTiebreaker = async () => {
     if (!rrTieInfo) return
     setActivatingTiebreaker(true)
-    const d = new Date()
-    d.setSeconds(0, 0)
-    const now = d.toISOString()
+    const now = new Date().toISOString()
     const { error: tbErr } = await supabase.rpc('activate_tournament_tiebreaker', {
       p_tournament_id: tournamentId,
       p_player_ids: rrTieInfo.tiedGroup,
@@ -322,7 +320,7 @@ export default function EnterResult() {
         // ── Round robin: check for completion ─────────────────────────────────
         const { data: freshMatches } = await supabase
           .from('matches')
-          .select('player1_id, player2_id, winner_id, played_at')
+          .select('player1_id, player2_id, winner_id, played_at, created_at')
           .eq('tournament_id', tournamentId)
           .not('winner_id', 'is', null)
 

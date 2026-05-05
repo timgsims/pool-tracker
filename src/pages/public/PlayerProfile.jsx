@@ -151,7 +151,8 @@ export default function PlayerProfile() {
             games(game_number, winner_id)
           `)
           .or(`player1_id.eq.${id},player2_id.eq.${id}`)
-          .order('played_at', { ascending: false }),
+          .order('played_at', { ascending: false })
+          .order('created_at', { ascending: false }),
 
         supabase.from('players').select('id, name'),
 
