@@ -14,7 +14,7 @@ const NAV_LINKS = [
 ]
 
 export default function Navbar() {
-  const { isAuthenticated, isAdmin, isPlayer, signOut, linkedPlayerName, linkedPlayerAvatar } = useAuth()
+  const { isAuthenticated, isAdmin, isPlayer, signOut, linkedPlayerName, linkedPlayerAvatar, user } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -89,9 +89,9 @@ export default function Navbar() {
                 </Link>
               )}
               <div className="flex items-center gap-2">
-                {linkedPlayerName && (
+                {isAuthenticated && (
                   <Link to="/account-settings" className="rounded-full ring-2 ring-transparent hover:ring-pool-accent transition-all">
-                    <Avatar name={linkedPlayerName} src={linkedPlayerAvatar} size="sm" />
+                    <Avatar name={linkedPlayerName || user?.email} src={linkedPlayerAvatar} size="sm" />
                   </Link>
                 )}
                 <button

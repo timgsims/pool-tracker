@@ -19,8 +19,8 @@ export default function AdminDashboard() {
     })
 
   const resetAllData = async () => {
-    if (!confirm('Delete ALL match, game, and tournament result records?\n\nThis permanently removes every match result, game record, bracket round, and tournament position from the database. Player accounts, profiles, and tournament/season structures are kept. This cannot be undone.')) return
-    if (!confirm('Are you absolutely sure? This will wipe the entire match history.')) return
+    if (!confirm('Delete ALL match, game, and tournament records?\n\nThis permanently removes every match result, game record, bracket round, tournament, and tournament position from the database. Player accounts, profiles, and seasons are kept. This cannot be undone.')) return
+    if (!confirm('Are you absolutely sure? This will wipe the entire match history and all tournaments.')) return
     setResetting(true)
     setResetError('')
     setResetDone(false)
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-slate-300 text-sm font-medium">Reset all match data</p>
-            <p className="text-slate-500 text-xs">Permanently delete every match, game, and tournament result. Player profiles, tournament structures, and seasons are kept.</p>
+            <p className="text-slate-500 text-xs">Permanently delete every match, game, and tournament (including bracket structures). Player profiles and seasons are kept.</p>
           </div>
           <button
             onClick={resetAllData}

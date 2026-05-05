@@ -42,13 +42,11 @@ async function autoFillRRPositions(pIds, matches, tournamentId) {
     if (wb !== wa) return wb - wa
     return (standings[a]?.losses ?? 0) - (standings[b]?.losses ?? 0)
   })
-  for (const [i, pid] of sorted.entries()) {
-    await supabase.from('tournament_participants')
-      .update({ final_position: i + 1 })
-      .eq('tournament_id', tournamentId)
-      .eq('player_id', pid)
-  }
-  await supabase.from('tournaments').update({ completed: true }).eq('id', tournamentId)
+  const positions = Object.fromEntries(sorted.map((pid, i) => [pid, i + 1]))
+  await supabase.rpc('complete_tournament', {
+    p_tournament_id: tournamentId,
+    p_positions: positions,
+  })
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -189,10 +187,10 @@ export default function EnterResult() {
     const d = new Date()
     d.setSeconds(0, 0)
     const now = d.toISOString()
-    const { error: tbErr } = await supabase.from('tournaments').update({
-      tiebreaker_players: rrTieInfo.tiedGroup,
-      tiebreaker_activated_at: now,
-    }).eq('id', tournamentId)
+    const { error: tbErr } = await supabase.rpc('activate_tournament_tiebreaker', {
+      p_tournament_id: tournamentId,
+      p_player_ids: rrTieInfo.tiedGroup,
+    })
     if (!tbErr) {
       setTournamentData(prev => ({
         ...prev,
@@ -288,13 +286,13 @@ export default function EnterResult() {
             (r.player1_id === player2Id && r.player2_id === player1Id)
           )
         if (round) {
-          await supabase.from('tournament_rounds').update({ winner_id: winnerId }).eq('id', round.id)
-          const slot = round.position % 2 === 1 ? 'player1_id' : 'player2_id'
-          await supabase.from('tournament_rounds')
-            .update({ [slot]: winnerId })
-            .eq('tournament_id', tournamentId)
-            .eq('round_number', round.round_number + 1)
-            .eq('position', Math.ceil(round.position / 2))
+          await supabase.rpc('advance_bracket_round', {
+            p_tournament_id: tournamentId,
+            p_round_id: round.id,
+            p_winner_id: winnerId,
+            p_round_number: round.round_number,
+            p_position: round.position,
+          })
 
           const rounds = tournamentData?.rounds ?? []
           const maxRnd = rounds.length > 0 ? Math.max(...rounds.map(r => r.round_number)) : 0
@@ -313,12 +311,11 @@ export default function EnterResult() {
             const pIds = tournamentData.participants.map(p => p.player_id)
             for (const pid of pIds) {
               if (!posMap[pid]) posMap[pid] = pos++
-              await supabase.from('tournament_participants')
-                .update({ final_position: posMap[pid] })
-                .eq('tournament_id', tournamentId)
-                .eq('player_id', pid)
             }
-            await supabase.from('tournaments').update({ completed: true }).eq('id', tournamentId)
+            await supabase.rpc('complete_tournament', {
+              p_tournament_id: tournamentId,
+              p_positions: posMap,
+            })
           }
         }
       } else {
@@ -359,16 +356,11 @@ export default function EnterResult() {
               const maxTbW = Math.max(...tbPlayers.map(pid => tbStats[pid]))
               const stillTied = tbPlayers.filter(pid => tbStats[pid] === maxTbW)
               if (stillTied.length >= 2) {
-                const d = new Date(); d.setSeconds(0, 0)
-                await supabase.from('tournaments').update({
-                  tiebreaker_players: stillTied,
-                  tiebreaker_activated_at: d.toISOString(),
-                }).eq('id', tournamentId)
+                await supabase.rpc('activate_tournament_tiebreaker', {
+                  p_tournament_id: tournamentId,
+                  p_player_ids: stillTied,
+                })
               } else {
-                await supabase.from('tournaments').update({
-                  tiebreaker_players: null,
-                  tiebreaker_activated_at: null,
-                }).eq('id', tournamentId)
                 await autoFillRRPositions(pIds, freshMatches ?? [], tournamentId)
               }
             }

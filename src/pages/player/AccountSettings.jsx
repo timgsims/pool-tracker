@@ -47,7 +47,7 @@ export default function AccountSettings() {
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(linkedPlayerId)
       const bustedUrl = `${publicUrl}?t=${Date.now()}`
-      await supabase.from('players').update({ avatar_url: bustedUrl }).eq('id', linkedPlayerId)
+      await supabase.rpc('update_player_avatar', { p_player_id: linkedPlayerId, p_avatar_url: bustedUrl })
       await refreshRole()
     } catch (err) {
       setAvatarError(err.message || 'Upload failed — check the avatars bucket exists and is public.')

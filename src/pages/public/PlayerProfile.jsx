@@ -233,7 +233,7 @@ export default function PlayerProfile() {
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(id)
       const bustedUrl = `${publicUrl}?t=${Date.now()}`
-      await supabase.from('players').update({ avatar_url: bustedUrl }).eq('id', id)
+      await supabase.rpc('update_player_avatar', { p_player_id: id, p_avatar_url: bustedUrl })
       setPlayer(prev => ({ ...prev, avatar_url: bustedUrl }))
       await refreshRole()
     } catch (err) {
