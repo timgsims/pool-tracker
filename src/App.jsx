@@ -84,7 +84,7 @@ export default function App() {
               <Route
                 path="account-settings"
                 element={
-                  <ProtectedRoute requireRole="player">
+                  <ProtectedRoute>
                     <AccountSettings />
                   </ProtectedRoute>
                 }
