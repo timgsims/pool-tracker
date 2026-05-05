@@ -184,12 +184,15 @@ export default function EnterResult() {
   const handleActivateTiebreaker = async () => {
     if (!rrTieInfo) return
     setActivatingTiebreaker(true)
+    setError('')
     const now = new Date().toISOString()
     const { error: tbErr } = await supabase.rpc('activate_tournament_tiebreaker', {
       p_tournament_id: tournamentId,
       p_player_ids: rrTieInfo.tiedGroup,
     })
-    if (!tbErr) {
+    if (tbErr) {
+      setError(`Tiebreaker activation failed: ${tbErr.message}`)
+    } else {
       setTournamentData(prev => ({
         ...prev,
         tiebreakerPlayers: rrTieInfo.tiedGroup,
