@@ -22,7 +22,7 @@ export default function TournamentStats() {
         { data: parts },
       ] = await Promise.all([
         supabase.from('players').select('id, name, avatar_url').eq('active', true),
-        supabase.from('tournaments').select('id, name, date, format').order('date', { ascending: false }),
+        supabase.from('tournaments').select('id, name, date, created_at, tiebreaker_activated_at, format').order('date', { ascending: false }),
         supabase
           .from('matches')
           .select('id, played_at, player1_id, player2_id, winner_id, tournament_id')
@@ -84,8 +84,21 @@ export default function TournamentStats() {
       .filter(s => s.played > 0)
       .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
 
-    return { ...t, winnerId, isComplete, standings }
+    const activityCandidates = [
+      ...tMatches.map(m => m.played_at),
+      t.tiebreaker_activated_at,
+      t.created_at,
+    ].filter(Boolean)
+    const latestActivity = activityCandidates.sort().reverse()[0] ?? ''
+
+    return { ...t, winnerId, isComplete, standings, latestActivity }
   }).filter(t => t.standings.length > 0)
+    .sort((a, b) => {
+      const ac = a.winnerId ? 1 : 0
+      const bc = b.winnerId ? 1 : 0
+      if (ac !== bc) return ac - bc
+      return b.latestActivity.localeCompare(a.latestActivity)
+    })
 
   const hasData = playerRecords.length > 0
 
