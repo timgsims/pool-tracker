@@ -1,6 +1,14 @@
 node_modules
 dist
+.DS_Store
+
+# Environment files — never commit real credentials
 .env
 .env.local
 *.local
-.DS_Store
+.env.development
+.env.scripts
+
+# Database backups — kept locally only
+backups/*.dump
+backups/tmp/
