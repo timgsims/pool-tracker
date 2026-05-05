@@ -137,7 +137,7 @@ export default function PlayerProfile() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }] = await Promise.all([
+      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }, { data: tParts }] = await Promise.all([
         supabase.from('players').select('*').eq('id', id).single(),
 
         supabase
@@ -164,6 +164,11 @@ export default function PlayerProfile() {
           .eq('champion_player_id', id)
           .eq('completed', true)
           .order('end_date', { ascending: false }),
+
+        supabase
+          .from('tournament_participants')
+          .select('tournament_id, final_position')
+          .eq('player_id', id),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
@@ -187,16 +192,15 @@ export default function PlayerProfile() {
         computed = { wins, losses, matches_played: played, win_pct: played > 0 ? wins / played : null }
       }
 
-      const tWins = tournamentMatches.filter(m => m.winner?.id === id).length
-      const tLosses = tournamentMatches.filter(m => m.winner && m.winner.id !== id).length
-      const tTotal = tWins + tLosses
-      const tEntered = new Set(tournamentMatches.map(m => m.tournament_id).filter(Boolean)).size
+      const tEntered = (tParts ?? []).length
+      const tWon = (tParts ?? []).filter(tp => tp.final_position === 1).length
+      const tWinRate = tEntered > 0 ? tWon / tEntered : null
 
       setPlayer(p)
       setActiveSeason(season ?? null)
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
-      setTournamentRecord(tTotal > 0 ? { entered: tEntered, wins: tWins, losses: tLosses, winRate: tWins / tTotal } : null)
+      setTournamentRecord(tEntered > 0 ? { entered: tEntered, won: tWon, winRate: tWinRate } : null)
       setAllMatches(matches)
       setStreak(computeStreak(matches, id))
       setComebacks(computeComebacks(matches, id))
@@ -338,13 +342,12 @@ export default function PlayerProfile() {
       {tournamentRecord && (
         <div>
           <p className="section-header">Tournament Record</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Tournaments" value={tournamentRecord.entered} />
-            <StatCard label="T. Wins" value={tournamentRecord.wins} accent />
-            <StatCard label="T. Losses" value={tournamentRecord.losses} />
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Entered" value={tournamentRecord.entered} />
+            <StatCard label="T. Wins" value={tournamentRecord.won} accent />
             <StatCard
               label="T. Win Rate"
-              value={`${(tournamentRecord.winRate * 100).toFixed(0)}%`}
+              value={tournamentRecord.winRate != null ? `${(tournamentRecord.winRate * 100).toFixed(0)}%` : '—'}
             />
           </div>
         </div>
