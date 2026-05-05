@@ -30,6 +30,7 @@ export default function AccountSettings() {
       setPwdSuccess(true)
       setNewPassword('')
       setConfirmPassword('')
+      await refreshRole()
     }
     setPwdSaving(false)
   }

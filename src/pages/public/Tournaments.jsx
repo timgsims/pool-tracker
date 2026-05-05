@@ -116,29 +116,29 @@ export default function Tournaments() {
             return (
               <div key={t.id} className="card p-5">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h2 className="font-bold text-slate-100 text-lg">{t.name}</h2>
-                    <div className="flex items-center justify-between gap-4 text-xs text-slate-500 mt-0.5">
-                      <span className="whitespace-nowrap">
-                        {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', {
-                          day: 'numeric', month: 'long', year: 'numeric',
-                        })}
-                        {' · '}
-                        {isBracket ? 'Single Elimination' : 'Round Robin'}
-                      </span>
-                      <span className="whitespace-nowrap">
-                        {parts.length} players
-                        {tMatches.length > 0 && ` · ${tMatches.length} matches`}
-                      </span>
-                    </div>
+                <div className="mb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-bold text-slate-100 text-lg leading-tight">{t.name}</h2>
+                    {winner && (
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-slate-600 mb-0.5">Winner</p>
+                        <p className="font-bold text-pool-accent text-sm">🏆 {winner.player?.name}</p>
+                      </div>
+                    )}
                   </div>
-                  {winner && (
-                    <div className="text-right shrink-0 ml-4">
-                      <p className="text-xs text-slate-600 mb-0.5">Winner</p>
-                      <p className="font-bold text-pool-accent">🏆 {winner.player?.name}</p>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-0.5">
+                    <span>
+                      {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                      {' · '}
+                      {isBracket ? 'Single Elimination' : 'Round Robin'}
+                    </span>
+                    <span>
+                      {parts.length} players
+                      {tMatches.length > 0 && ` · ${tMatches.length} matches`}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Bracket view */}

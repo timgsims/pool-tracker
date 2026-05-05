@@ -110,7 +110,7 @@ function BarTooltip({ active, payload, label }) {
 
 export default function PlayerProfile() {
   const { id } = useParams()
-  const { isAdmin, linkedPlayerId } = useAuth()
+  const { isAdmin, linkedPlayerId, refreshRole } = useAuth()
   const [player, setPlayer] = useState(null)
   const [allMatches, setAllMatches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -144,6 +144,7 @@ export default function PlayerProfile() {
           .from('matches')
           .select(`
             id, played_at, format, tournament_id,
+            tournament:tournament_id(name),
             player1:player1_id(id, name),
             player2:player2_id(id, name),
             winner:winner_id(id, name),
@@ -234,6 +235,7 @@ export default function PlayerProfile() {
       const bustedUrl = `${publicUrl}?t=${Date.now()}`
       await supabase.from('players').update({ avatar_url: bustedUrl }).eq('id', id)
       setPlayer(prev => ({ ...prev, avatar_url: bustedUrl }))
+      await refreshRole()
     } catch (err) {
       setAvatarError(err.message || 'Upload failed — check the avatars bucket exists and is public.')
     } finally {
@@ -610,7 +612,14 @@ export default function PlayerProfile() {
                         </Link>
                       </td>
                       <td className="text-left text-slate-600 text-xs">
-                        {m.format === 'best_of_3' ? `Bo3 (${myGames}–${theirGames})` : '1 game'}
+                        {m.tournament
+                          ? m.format === 'best_of_3'
+                            ? `Tournament · Bo3 (${myGames}–${theirGames})`
+                            : 'Tournament · 1 game'
+                          : m.format === 'best_of_3'
+                            ? `Bo3 (${myGames}–${theirGames})`
+                            : '1 game'
+                        }
                       </td>
                       <td className="text-right pr-5">
                         {m.winner

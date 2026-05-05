@@ -24,7 +24,7 @@ export default function Rules() {
         <img
           src={`${import.meta.env.BASE_URL}logo-white-v2.png`}
           alt="Pool Tracker"
-          className="h-16 w-auto"
+          className="h-48 w-auto"
         />
         <div className="text-center">
           <p className="section-header">Reference</p>

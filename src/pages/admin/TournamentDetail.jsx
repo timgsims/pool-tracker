@@ -38,7 +38,7 @@ function computeTbPairs(playerIds, matches, activatedAt) {
       const tbMatch = matches
         .filter(m =>
           ((m.player1_id === p1 && m.player2_id === p2) || (m.player1_id === p2 && m.player2_id === p1)) &&
-          (!activatedAt || new Date(m.played_at) > new Date(activatedAt))
+          (!activatedAt || new Date(m.played_at) >= new Date(activatedAt))
         )
         .sort((a, b) => new Date(b.played_at) - new Date(a.played_at))[0] ?? null
       pairs.push({ p1, p2, match: tbMatch })
@@ -346,7 +346,10 @@ export default function AdminTournamentDetail() {
   // ── Tiebreaker management ───────────────────────────────────────────────────
 
   const activateTiebreaker = async (players) => {
-    const now = new Date().toISOString()
+    // Truncate to minute start — matches nzLocalToISO(nowNZLocal()) minute precision
+    const d = new Date()
+    d.setSeconds(0, 0)
+    const now = d.toISOString()
     await supabase.from('tournaments').update({
       tiebreaker_players: players,
       tiebreaker_activated_at: now,
@@ -466,6 +469,30 @@ export default function AdminTournamentDetail() {
 
     // Advance winner to next round
     await advanceWinnerInDB(round.round_number, round.position, winner)
+
+    // Auto-complete when the final match is decided
+    const maxRnd = bracketRounds.length > 0 ? Math.max(...bracketRounds.map(r => r.round_number)) : 0
+    if (round.round_number === maxRnd && round.position === 1) {
+      const loser = round.player1_id === winner ? round.player2_id : round.player1_id
+      const posMap = {}
+      if (winner) posMap[winner] = 1
+      if (loser) posMap[loser] = 2
+      let pos = 3
+      for (let r = maxRnd - 1; r >= 1; r--) {
+        for (const br of bracketRounds.filter(b => b.round_number === r && b.winner_id)) {
+          const bLoser = br.winner_id === br.player1_id ? br.player2_id : br.player1_id
+          if (bLoser && !posMap[bLoser]) posMap[bLoser] = pos++
+        }
+      }
+      for (const pid of participantIds) {
+        if (!posMap[pid]) posMap[pid] = pos++
+        await supabase.from('tournament_participants')
+          .update({ final_position: posMap[pid] })
+          .eq('tournament_id', id)
+          .eq('player_id', pid)
+      }
+      await supabase.from('tournaments').update({ completed: true }).eq('id', id)
+    }
 
     load()
     return null
