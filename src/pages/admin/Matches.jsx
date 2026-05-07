@@ -8,7 +8,7 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
   const [p1, setP1] = useState(match.player1?.id ?? '')
   const [p2, setP2] = useState(match.player2?.id ?? '')
   const [playedAt, setPlayedAt] = useState(isoToNZLocal(match.played_at))
-  const [winner, setWinner] = useState(match.winner?.id ?? '')
+  const isBo3 = match.format === 'best_of_3'
   const [gameWinners, setGameWinners] = useState(() => {
     const sorted = [...(match.games ?? [])].sort((a, b) => a.game_number - b.game_number)
     return [sorted[0]?.winner_id ?? '', sorted[1]?.winner_id ?? '', sorted[2]?.winner_id ?? '']
@@ -19,10 +19,14 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
   const player1 = allPlayers.find(p => p.id === p1)
   const player2 = allPlayers.find(p => p.id === p2)
 
-  // Clear winner if they're no longer one of the selected players
-  useEffect(() => {
-    if (winner && winner !== p1 && winner !== p2) setWinner('')
-  }, [p1, p2, winner])
+  const derivedWinner = (() => {
+    if (!isBo3) return gameWinners[0] || null
+    const p1Wins = gameWinners.filter(w => w === p1).length
+    const p2Wins = gameWinners.filter(w => w === p2).length
+    if (p1Wins >= 2) return p1
+    if (p2Wins >= 2) return p2
+    return null
+  })()
 
   const setGame = (i, val) => {
     const updated = [...gameWinners]
@@ -42,29 +46,40 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
           player1_id: p1,
           player2_id: p2,
           played_at: nzLocalToISO(playedAt),
-          format: 'best_of_3',
-          winner_id: winner || null,
+          winner_id: derivedWinner,
         })
         .eq('id', match.id)
       if (matchErr) throw matchErr
 
       await supabase.from('games').delete().eq('match_id', match.id)
 
-      const games = gameWinners
-        .map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null)
-        .filter(Boolean)
-      if (games.length) {
-        const { error: gErr } = await supabase.from('games').insert(games)
+      const gamesToSave = isBo3
+        ? gameWinners.map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null).filter(Boolean)
+        : gameWinners[0] ? [{ match_id: match.id, game_number: 1, winner_id: gameWinners[0] }] : []
+
+      if (gamesToSave.length) {
+        const { error: gErr } = await supabase.from('games').insert(gamesToSave)
         if (gErr) throw gErr
       }
 
+      // For bracket tournament matches: also update tournament_rounds.winner_id
+      // (does not re-advance the bracket — edit via Tournament admin for structural changes)
+      if (match.tournament_id) {
+        await supabase
+          .from('tournament_rounds')
+          .update({ winner_id: derivedWinner })
+          .eq('tournament_id', match.tournament_id)
+          .or(`and(player1_id.eq.${p1},player2_id.eq.${p2}),and(player1_id.eq.${p2},player2_id.eq.${p1})`)
+      }
+
       onSaved()
-      onClose()
     } catch (err) {
       setError(err.message || 'Failed to save')
       setSaving(false)
     }
   }
+
+  const gameCount = isBo3 ? 3 : 1
 
   return (
     <div
@@ -108,7 +123,7 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
           <div>
             <label className="label">Game results</label>
             <div className="space-y-2">
-              {[0, 1, 2].map(i => (
+              {Array.from({ length: gameCount }, (_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <span className="text-slate-500 text-xs w-12 shrink-0">Game {i + 1}</span>
                   <select
@@ -126,14 +141,19 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
           </div>
         )}
 
-        <div>
-          <label className="label">Match winner</label>
-          <select className="select text-sm" value={winner} onChange={e => setWinner(e.target.value)}>
-            <option value="">— no result —</option>
-            {player1 && <option value={player1.id}>{player1.name}</option>}
-            {player2 && <option value={player2.id}>{player2.name}</option>}
-          </select>
+        <div className="bg-pool-surface border border-pool-border rounded-lg px-3 py-2 text-sm">
+          <span className="text-slate-500">Match winner: </span>
+          {derivedWinner
+            ? <span className="text-pool-accent font-medium">{allPlayers.find(p => p.id === derivedWinner)?.name}</span>
+            : <span className="text-slate-600">— incomplete —</span>
+          }
         </div>
+
+        {match.tournament_id && (
+          <p className="text-amber-500/80 text-xs">
+            Tournament match — bracket advancement is not re-run on edit. Use the Tournament admin page for structural changes.
+          </p>
+        )}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -160,7 +180,7 @@ export default function AdminMatches() {
       supabase
         .from('matches')
         .select(`
-          id, played_at, format,
+          id, played_at, format, tournament_id,
           player1:player1_id(id, name),
           player2:player2_id(id, name),
           winner:winner_id(id, name),
