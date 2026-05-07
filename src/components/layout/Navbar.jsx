@@ -3,6 +3,8 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import Avatar from '../ui/Avatar'
 
+const isTest = import.meta.env.VITE_ENV_NAME === 'test'
+
 const NAV_LINKS = [
   { to: '/', label: 'Leaderboard', end: true },
   { to: '/matches', label: 'Matches' },
@@ -34,6 +36,11 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-pool-border bg-pool-surface/95 backdrop-blur-sm">
+      {isTest && (
+        <div className="bg-orange-500 text-white text-xs font-bold text-center py-1 tracking-widest uppercase">
+          Test Environment
+        </div>
+      )}
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
 
         {/* Logo — dropdown trigger */}
