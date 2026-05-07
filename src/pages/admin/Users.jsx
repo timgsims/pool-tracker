@@ -70,7 +70,7 @@ export default function AdminUsers() {
       )}
 
       <div className="card overflow-x-auto">
-        <table className="table-base">
+        <table className="table-base min-w-[560px]">
           <colgroup>
             <col />
             <col className="w-28" />
