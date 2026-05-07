@@ -95,7 +95,12 @@ function buildSeasonData(yearMatches, standings, startLabel) {
   const wins = {}
   standings.forEach(p => { wins[p.player_id] = 0 })
 
+  const monthTicks = [0]
+  const monthLabels = { 0: startLabel ?? '—' }
+  let lastMonthKey = null
+
   const points = [{
+    idx: 0,
     date: startLabel ?? '—',
     ...Object.fromEntries(standings.map(p => [p.player_name, 0])),
   }]
@@ -103,20 +108,29 @@ function buildSeasonData(yearMatches, standings, startLabel) {
   for (const m of yearMatches) {
     if (!m.winner_id || wins[m.winner_id] === undefined) continue
     wins[m.winner_id]++
+    const idx = points.length
+    const monthKey = m.played_at.slice(0, 7) // "YYYY-MM"
+    if (monthKey !== lastMonthKey) {
+      lastMonthKey = monthKey
+      monthTicks.push(idx)
+      monthLabels[idx] = new Date(m.played_at).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    }
     points.push({
+      idx,
       date: formatDate(m.played_at),
       ...Object.fromEntries(standings.map(p => [p.player_name, wins[p.player_id]])),
     })
   }
 
-  return points
+  return { points, monthTicks, monthLabels }
 }
 
-function ChartTooltip({ active, payload, label }) {
+function ChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
+  const date = payload[0]?.payload?.date ?? ''
   return (
     <div className="bg-pool-elevated border border-pool-border rounded-lg px-3 py-2 text-xs shadow-lg">
-      <p className="text-slate-400 mb-1.5">{label}</p>
+      <p className="text-slate-400 mb-1.5">{date}</p>
       {[...payload].sort((a, b) => b.value - a.value).map(entry => (
         <p key={entry.name} style={{ color: entry.color }} className="leading-5">
           {entry.name}: {entry.value}
@@ -439,7 +453,7 @@ function SeasonTab({ standings, yearMatches, activeSeason }) {
   const startLabel = activeSeason
     ? formatDate(activeSeason.start_date + 'T12:00:00')
     : formatDate(yearMatches[0]?.played_at)
-  const data = buildSeasonData(yearMatches, standings, startLabel)
+  const { points: data, monthTicks, monthLabels } = buildSeasonData(yearMatches, standings, startLabel)
 
   return (
     <div className="space-y-4">
@@ -449,9 +463,12 @@ function SeasonTab({ standings, yearMatches, activeSeason }) {
           <LineChart data={data} margin={{ top: 5, right: 16, left: -16, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
             <XAxis
-              dataKey="date"
+              dataKey="idx"
+              type="number"
+              domain={[0, data.length - 1]}
+              ticks={monthTicks}
+              tickFormatter={idx => monthLabels[idx] ?? ''}
               tick={{ fill: '#64748b', fontSize: 10 }}
-              interval="preserveStartEnd"
             />
             <YAxis
               tick={{ fill: '#64748b', fontSize: 10 }}
