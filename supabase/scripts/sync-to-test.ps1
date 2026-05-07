@@ -60,15 +60,51 @@ New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 $snapshotFile = Join-Path $tmpDir "live_data_$(Get-Date -Format 'yyyyMMdd_HHmmss').dump"
 
 Write-Host ''
-Write-Host '==> Dumping live data (public schema only)...'
-pg_dump $liveUri --no-owner --no-acl --data-only --schema=public -F c -f $snapshotFile
+Write-Host '==> Dumping live data (public schema only, excluding user_roles and schema_migrations)...'
+# user_roles excluded: references auth.users which differ between environments
+# schema_migrations excluded: tracks migrations per-environment, must not be overwritten
+pg_dump $liveUri --no-owner --no-acl --data-only --schema=public `
+    --exclude-table=public.user_roles --exclude-table=public.schema_migrations `
+    -F c -f $snapshotFile
 if ($LASTEXITCODE -ne 0) { Write-Error 'pg_dump failed'; exit 1 }
 
+Write-Host '==> Saving test user_roles (will be restored after sync)...'
+# user_roles cascade-deletes when players is truncated, so we snapshot and re-insert them
+$savedRoles = psql $testUri -t -A -F "`t" -c "SELECT user_id, role, player_id FROM public.user_roles;"
+if ($LASTEXITCODE -ne 0) { Write-Error 'Failed to read user_roles'; exit 1 }
+
+Write-Host '==> Truncating test tables...'
+$truncateSql = @'
+TRUNCATE TABLE
+  public.games,
+  public.tournament_rounds,
+  public.tournament_participants,
+  public.matches,
+  public.tournaments,
+  public.seasons,
+  public.rules,
+  public.players
+CASCADE;
+'@
+$truncateSql | & psql $testUri
+if ($LASTEXITCODE -ne 0) { Write-Error 'Truncate failed'; exit 1 }
+
 Write-Host '==> Restoring to test database...'
-pg_restore --data-only --clean --if-exists --disable-triggers -d $testUri $snapshotFile
+pg_restore --data-only -d $testUri $snapshotFile
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning 'pg_restore reported warnings or non-fatal errors — this is common when some rows do not exist yet to clean.'
+    Write-Warning 'pg_restore reported warnings or non-fatal errors — this is common for extension or auth-related items.'
     Write-Warning 'Check the output above. If the data loaded, the sync succeeded.'
+}
+
+Write-Host '==> Restoring test user_roles...'
+foreach ($row in ($savedRoles -split "`n" | Where-Object { $_.Trim() -ne '' })) {
+    $cols = $row -split "`t"
+    $userId  = $cols[0].Trim()
+    $role    = $cols[1].Trim()
+    $pidRaw  = $cols[2].Trim()
+    $pid     = if ($pidRaw -eq '' -or $pidRaw -eq '\N') { 'NULL' } else { "'$pidRaw'" }
+    $sql = "INSERT INTO public.user_roles (user_id, role, player_id) VALUES ('$userId', '$role'::user_role, $pid) ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role, player_id = EXCLUDED.player_id;"
+    psql $testUri -c $sql | Out-Null
 }
 
 Remove-Item $snapshotFile -ErrorAction SilentlyContinue
