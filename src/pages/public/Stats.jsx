@@ -313,7 +313,7 @@ export default function Stats() {
                     <th className="text-center">Win %</th>
                     <th className="text-center">Best</th>
                     <th className="text-right hidden sm:table-cell">Last Played</th>
-                    <th className="text-right pr-5">Last 10</th>
+                    <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>
                   </tr>
                 </thead>
                 <tbody>
