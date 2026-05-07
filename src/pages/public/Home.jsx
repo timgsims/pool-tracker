@@ -574,6 +574,7 @@ export default function Home() {
       <div>
         <p className="section-header">{activeSeason ? `Season — ${activeSeason.name}` : 'All Time'}</p>
         <h1 className="text-3xl font-bold text-slate-100">Leaderboard</h1>
+        <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mt-1">Best-of-3 Matches</p>
       </div>
 
       {/* Tabs */}
