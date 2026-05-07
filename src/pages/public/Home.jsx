@@ -470,8 +470,8 @@ function SeasonTab({ standings, yearMatches, activeSeason }) {
                 dataKey={p.player_name}
                 stroke={PLAYER_COLORS[i % PLAYER_COLORS.length]}
                 strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 0, fill: PLAYER_COLORS[i % PLAYER_COLORS.length] }}
-                activeDot={{ r: 5, strokeWidth: 0 }}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
               />
             ))}
           </LineChart>
