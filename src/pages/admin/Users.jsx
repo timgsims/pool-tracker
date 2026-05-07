@@ -95,18 +95,18 @@ export default function AdminUsers() {
             ) : users.map(u => (
               <tr key={u.user_id}>
                 <td className="pl-5 text-slate-300 text-sm">{u.email}</td>
-                <td className="align-middle">
+                <td>
                   <select
-                    className="bg-pool-surface border border-pool-border rounded text-xs px-2 py-1 text-slate-300 focus:outline-none focus:border-pool-accent"
+                    className="w-full bg-pool-surface border border-pool-border rounded text-xs px-2 py-1.5 text-slate-300 focus:outline-none focus:border-pool-accent"
                     value={u.role}
                     onChange={e => updateRole(u.user_id, e.target.value)}
                   >
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </td>
-                <td className="align-middle">
+                <td>
                   <select
-                    className="bg-pool-surface border border-pool-border rounded text-xs px-2 py-1 text-slate-300 focus:outline-none focus:border-pool-accent"
+                    className="w-full bg-pool-surface border border-pool-border rounded text-xs px-2 py-1.5 text-slate-300 focus:outline-none focus:border-pool-accent"
                     value={u.player_id ?? ''}
                     onChange={e => linkPlayer(u.user_id, e.target.value)}
                   >
