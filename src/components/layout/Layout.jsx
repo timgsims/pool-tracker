@@ -3,6 +3,14 @@ import Navbar from './Navbar'
 
 const isTest = import.meta.env.VITE_ENV_NAME === 'test'
 
+if (isTest) {
+  const base = import.meta.env.BASE_URL
+  document.querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']").forEach(el => {
+    el.href = `${base}icon-test.png`
+  })
+  document.title = 'TEST 8-Ball Pool Tracker'
+}
+
 export default function Layout() {
   return (
     <div className={`min-h-screen bg-pool-bg flex flex-col${isTest ? ' outline outline-4 outline-orange-500 outline-offset-[-4px] fixed inset-0 overflow-auto' : ''}`}>
