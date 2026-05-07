@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort, isoToNZLocal, nzLocalToISO } from '../../lib/dateUtils'
@@ -169,6 +170,7 @@ function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
 }
 
 export default function AdminMatches() {
+  const navigate = useNavigate()
   const [matches, setMatches] = useState([])
   const [allPlayers, setAllPlayers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -257,7 +259,9 @@ export default function AdminMatches() {
                     {left?.name} vs {right?.name}
                   </td>
                   <td className="text-slate-600 text-xs">
-                    {m.format === 'best_of_3' ? 'Bo3' : '1G'}
+                    {m.tournament_id
+                      ? (m.format === 'best_of_3' ? 'Tourn. · Bo3' : 'Tourn.')
+                      : (m.format === 'best_of_3' ? 'Bo3' : '1G')}
                   </td>
                   <td className="text-sm">
                     {m.winner
@@ -266,7 +270,9 @@ export default function AdminMatches() {
                   </td>
                   <td className="text-right pr-5 space-x-3">
                     <button
-                      onClick={() => setEditing(m)}
+                      onClick={() => m.tournament_id
+                        ? navigate(`/admin/tournaments/${m.tournament_id}`)
+                        : setEditing(m)}
                       className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
                     >
                       Edit

@@ -86,8 +86,8 @@ async function buildSeeds(participantIds, method) {
 
 // ─── Record match modal ───────────────────────────────────────────────────────
 
-function RecordModal({ p1, p2, nameOf, onSave, onClose }) {
-  const [games, setGames] = useState(['', '', ''])
+function RecordModal({ p1, p2, nameOf, onSave, onClose, initialGames, isEdit }) {
+  const [games, setGames] = useState(initialGames ?? ['', '', ''])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -130,7 +130,7 @@ function RecordModal({ p1, p2, nameOf, onSave, onClose }) {
 
         <div className="flex gap-2">
           <button onClick={handleSave} disabled={saving || !winner} className="btn-primary flex-1">
-            {saving ? 'Saving…' : 'Save Result'}
+            {saving ? 'Saving…' : isEdit ? 'Update Result' : 'Save Result'}
           </button>
           <button onClick={onClose} className="btn-secondary">Cancel</button>
         </div>
@@ -463,31 +463,49 @@ export default function AdminTournamentDetail() {
 
   const saveBracketMatch = async (games, winner) => {
     const round = bracketModal
-    // Create match record
-    const { data: match, error: mErr } = await supabase
-      .from('matches')
-      .insert({
-        player1_id: round.player1_id,
-        player2_id: round.player2_id,
-        played_at: nzLocalToISO(nowNZLocal()),
-        format: 'best_of_3',
-        winner_id: winner,
-        tournament_id: id,
-      })
-      .select('id')
-      .single()
-    if (mErr) return mErr.message
+    const existingMatch = tMatches.find(m =>
+      (m.player1_id === round.player1_id && m.player2_id === round.player2_id) ||
+      (m.player1_id === round.player2_id && m.player2_id === round.player1_id)
+    )
+
+    let matchId
+    if (existingMatch) {
+      const { error: mErr } = await supabase
+        .from('matches')
+        .update({ winner_id: winner })
+        .eq('id', existingMatch.id)
+      if (mErr) return mErr.message
+      matchId = existingMatch.id
+      await supabase.from('games').delete().eq('match_id', matchId)
+    } else {
+      const { data: match, error: mErr } = await supabase
+        .from('matches')
+        .insert({
+          player1_id: round.player1_id,
+          player2_id: round.player2_id,
+          played_at: nzLocalToISO(nowNZLocal()),
+          format: 'best_of_3',
+          winner_id: winner,
+          tournament_id: id,
+        })
+        .select('id')
+        .single()
+      if (mErr) return mErr.message
+      matchId = match.id
+    }
 
     const gameRows = games
-      .map((w, i) => w ? { match_id: match.id, game_number: i + 1, winner_id: w } : null)
+      .map((w, i) => w ? { match_id: matchId, game_number: i + 1, winner_id: w } : null)
       .filter(Boolean)
     if (gameRows.length) await supabase.from('games').insert(gameRows)
 
     // Update this round entry
     await supabase.from('tournament_rounds').update({ winner_id: winner }).eq('id', round.id)
 
-    // Advance winner to next round
-    await advanceWinnerInDB(round.round_number, round.position, winner)
+    // Only advance winner to next round for new match records (not edits)
+    if (!existingMatch) {
+      await advanceWinnerInDB(round.round_number, round.position, winner)
+    }
 
     // Auto-complete when the final match is decided
     const maxRnd = bracketRounds.length > 0 ? Math.max(...bracketRounds.map(r => r.round_number)) : 0
@@ -600,6 +618,27 @@ export default function AdminTournamentDetail() {
     }
   }
 
+  // Detect stale bracket matches: a match is stale if a feeder's winner_id no longer
+  // matches the player placed in its slot (i.e. a previous result was edited after
+  // advancement). Staleness cascades forward through subsequent rounds.
+  const staleMatchKeys = new Set()
+  for (let ri = 1; ri < roundGroups.length; ri++) {
+    const prevRound = roundGroups[ri - 1]
+    const currRound = roundGroups[ri]
+    for (const match of currRound) {
+      const pos = match.position
+      const feeder1 = prevRound.find(m => m.position === 2 * pos - 1)
+      const feeder2 = prevRound.find(m => m.position === 2 * pos)
+      const f1Stale = feeder1 && staleMatchKeys.has(`${ri - 1}-${feeder1.position}`)
+      const f2Stale = feeder2 && staleMatchKeys.has(`${ri - 1}-${feeder2.position}`)
+      const p1Wrong = feeder1?.winner_id && !feeder1.is_bye && feeder1.winner_id !== match.player1_id
+      const p2Wrong = feeder2?.winner_id && !feeder2.is_bye && feeder2.winner_id !== match.player2_id
+      if (p1Wrong || p2Wrong || f1Stale || f2Stale) {
+        staleMatchKeys.add(`${ri}-${pos}`)
+      }
+    }
+  }
+
   // Separate regular matches from tiebreaker matches using the activation timestamp
   const tbActivatedAt = tournament?.tiebreaker_activated_at ?? null
   const regularTMatches = tbActivatedAt
@@ -701,14 +740,28 @@ export default function AdminTournamentDetail() {
           onClose={() => setRrModal(null)}
         />
       )}
-      {bracketModal && (
-        <RecordModal
-          p1={bracketModal.player1_id} p2={bracketModal.player2_id}
-          nameOf={nameOf}
-          onSave={saveBracketMatch}
-          onClose={() => setBracketModal(null)}
-        />
-      )}
+      {bracketModal && (() => {
+        const bExisting = tMatches.find(m =>
+          (m.player1_id === bracketModal.player1_id && m.player2_id === bracketModal.player2_id) ||
+          (m.player1_id === bracketModal.player2_id && m.player2_id === bracketModal.player1_id)
+        ) ?? null
+        const bInitialGames = bExisting
+          ? (() => {
+              const sorted = [...(bExisting.games ?? [])].sort((a, b) => a.game_number - b.game_number)
+              return [sorted[0]?.winner_id ?? '', sorted[1]?.winner_id ?? '', sorted[2]?.winner_id ?? '']
+            })()
+          : undefined
+        return (
+          <RecordModal
+            p1={bracketModal.player1_id} p2={bracketModal.player2_id}
+            nameOf={nameOf}
+            onSave={saveBracketMatch}
+            onClose={() => setBracketModal(null)}
+            initialGames={bInitialGames}
+            isEdit={!!bExisting}
+          />
+        )
+      })()}
 
       {/* Participants */}
       <div className="card p-5 space-y-3">
@@ -804,11 +857,17 @@ export default function AdminTournamentDetail() {
             </p>
           ) : (
             <>
-              <p className="text-slate-600 text-xs">Click any pending match to record the result. Winners advance automatically.</p>
+              <p className="text-slate-600 text-xs">
+                Click any match to record or edit the result. Winners advance automatically for new results.
+                {staleMatchKeys.size > 0 && (
+                  <span className="text-red-500/80 ml-2">Red matches need updating — a previous result was changed.</span>
+                )}
+              </p>
               <BracketView
                 rounds={roundGroups}
                 nameOf={nameOf}
                 onMatchClick={setBracketModal}
+                staleKeys={staleMatchKeys}
               />
             </>
           )}

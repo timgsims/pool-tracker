@@ -25,7 +25,7 @@ function PlayerSlot({ name, isWinner, isPlaceholder }) {
   )
 }
 
-function MatchCard({ match, nameOf, onClick, clickable }) {
+function MatchCard({ match, nameOf, onClick, clickable, isCompleted, isStale }) {
   const p1Name = match.player1_id ? nameOf(match.player1_id) : 'TBD'
   const p2Name = match.is_bye ? 'BYE'
     : match.player2_id ? nameOf(match.player2_id)
@@ -34,7 +34,11 @@ function MatchCard({ match, nameOf, onClick, clickable }) {
   return (
     <div
       className={`border rounded-lg overflow-hidden bg-pool-card transition-colors ${
-        clickable
+        isStale
+          ? 'border-red-600/70 ring-1 ring-red-600/30 cursor-pointer hover:border-red-500'
+          : clickable && isCompleted
+          ? 'border-pool-border cursor-pointer hover:border-amber-500/60 hover:ring-1 hover:ring-amber-500/30'
+          : clickable
           ? 'border-pool-border cursor-pointer hover:border-slate-500'
           : 'border-pool-border/60'
       }`}
@@ -55,7 +59,7 @@ function MatchCard({ match, nameOf, onClick, clickable }) {
   )
 }
 
-export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = false }) {
+export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = false, staleKeys }) {
   const numRounds = rounds.length
   if (!numRounds) return null
 
@@ -84,8 +88,10 @@ export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = f
               {matches.map((match, mi) => {
                 const centerSlot = mi * slotsPerMatch + slotsPerMatch / 2
                 const topPx = HEADER_H + centerSlot * SLOT_H - CARD_H / 2
-                const canClick = !readOnly && !match.winner_id && !match.is_bye
+                const canClick = !readOnly && !match.is_bye
                   && match.player1_id && match.player2_id
+                const matchKey = `${ri}-${match.position}`
+                const isStale = staleKeys?.has(matchKey) ?? false
 
                 return (
                   <div
@@ -97,7 +103,9 @@ export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = f
                       match={match}
                       nameOf={nameOf}
                       onClick={onMatchClick}
-                      clickable={canClick}
+                      clickable={canClick || isStale}
+                      isCompleted={!!match.winner_id}
+                      isStale={isStale}
                     />
                   </div>
                 )
