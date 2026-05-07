@@ -95,7 +95,7 @@ export default function AdminUsers() {
             ) : users.map(u => (
               <tr key={u.user_id}>
                 <td className="pl-5 text-slate-300 text-sm">{u.email}</td>
-                <td>
+                <td className="align-middle">
                   <select
                     className="bg-pool-surface border border-pool-border rounded text-xs px-2 py-1 text-slate-300 focus:outline-none focus:border-pool-accent"
                     value={u.role}
@@ -104,7 +104,7 @@ export default function AdminUsers() {
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </td>
-                <td>
+                <td className="align-middle">
                   <select
                     className="bg-pool-surface border border-pool-border rounded text-xs px-2 py-1 text-slate-300 focus:outline-none focus:border-pool-accent"
                     value={u.player_id ?? ''}
