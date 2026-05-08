@@ -34,6 +34,7 @@ import AdminTournaments from './pages/admin/Tournaments'
 import AdminTournamentDetail from './pages/admin/TournamentDetail'
 import AdminSeasons from './pages/admin/Seasons'
 import AdminRules from './pages/admin/Rules'
+import AdminChangelog from './pages/admin/Changelog'
 
 function ProfileSetupGuard({ children }) {
   const { isAuthenticated, linkedPlayerId, role, loading, recoveryMode } = useAuth()
@@ -111,6 +112,7 @@ export default function App() {
                 <Route path="tournaments/:id" element={<AdminTournamentDetail />} />
                 <Route path="seasons" element={<AdminSeasons />} />
                 <Route path="rules" element={<AdminRules />} />
+                <Route path="changelog" element={<AdminChangelog />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

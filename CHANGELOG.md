@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.6.1 — 2026-05-08
+
+### Added
+- Admin: Changelog page displaying this file in plain text
+
+---
+
 ## v1.6.0 — 2026-05-08
 
 ### Added

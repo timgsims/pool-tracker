@@ -8,6 +8,7 @@ const ADMIN_LINKS = [
   { to: '/admin/tournaments', label: 'Tournaments' },
   { to: '/admin/seasons', label: 'Seasons' },
   { to: '/admin/rules', label: 'Rules' },
+  { to: '/admin/changelog', label: 'Changelog' },
 ]
 
 export default function AdminLayout() {
