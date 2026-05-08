@@ -111,14 +111,16 @@ function computeOverallRecords(allStats, playerIds, matches, h2hData) {
 
 function RecordCard({ label, name, nameId, value, valueCls = 'text-pool-accent', sub }) {
   return (
-    <div className="card p-4 space-y-0.5">
+    <div className="card p-4 flex flex-col">
       <p className="section-header">{label}</p>
-      {nameId
-        ? <Link to={`/player/${nameId}`} className="text-slate-100 font-semibold text-sm hover:text-pool-accent transition-colors block">{name}</Link>
-        : name && <p className="text-slate-100 font-semibold text-sm">{name}</p>
-      }
-      <p className={`text-2xl font-bold tabular-nums ${valueCls}`}>{value}</p>
-      {sub && <p className="text-slate-600 text-xs">{sub}</p>}
+      <div className="mt-auto pt-1.5 space-y-0.5">
+        {nameId
+          ? <Link to={`/player/${nameId}`} className="text-slate-100 font-semibold text-sm hover:text-pool-accent transition-colors block">{name}</Link>
+          : name && <p className="text-slate-100 font-semibold text-sm">{name}</p>
+        }
+        <p className={`text-2xl font-bold tabular-nums ${valueCls}`}>{value}</p>
+        {sub && <p className="text-slate-600 text-xs">{sub}</p>}
+      </div>
     </div>
   )
 }
@@ -208,23 +210,24 @@ export default function Stats() {
 
   const n = id => nameMap[id] ?? ''
   const hasData = players.some(p => (allStats[p.id]?.total ?? 0) > 0)
+  const bo3Map = Object.fromEntries(bo3Players.map(p => [p.id, p.comebacks ?? 0]))
 
   return (
     <div className="space-y-8">
       <div>
         <p className="section-header">Records &amp; Breakdown</p>
-        <h1 className="page-title">Stats</h1>
+        <h1 className="page-title">Bo3 Stats</h1>
       </div>
 
       {!hasData ? (
         <div className="card p-8 text-center text-slate-600">No match data yet.</div>
       ) : (
         <>
-          {/* Regular Matches */}
+          {/* Records */}
           {records && (
             <div>
-              <p className="section-header">Regular Matches</p>
-              <p className="text-slate-600 text-xs -mt-2 mb-4">Excludes tournament matches — all formats combined</p>
+              <p className="section-header">Records</p>
+              <p className="text-slate-600 text-xs -mt-2 mb-4">Non-tournament best-of-3 matches</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
 
                 {records.mostId && allStats[records.mostId] && (
@@ -289,30 +292,56 @@ export default function Stats() {
                   />
                 )}
 
+                {bo3Records?.bestWinRate && (
+                  <RecordCard
+                    label="Best Win Rate"
+                    name={n(bo3Records.bestWinRate.id)}
+                    nameId={bo3Records.bestWinRate.id}
+                    value={`${(bo3Records.bestWinRate.pct * 100).toFixed(0)}%`}
+                    valueCls="text-pool-accent"
+                    sub="min. 3 matches"
+                  />
+                )}
+
+                {bo3Records?.mostComebacks && (
+                  <RecordCard
+                    label="Most Comeback Wins"
+                    name={n(bo3Records.mostComebacks.id)}
+                    nameId={bo3Records.mostComebacks.id}
+                    value={bo3Records.mostComebacks.count}
+                    valueCls="text-slate-300"
+                    sub="Won after losing game 1"
+                  />
+                )}
+
               </div>
             </div>
           )}
 
-          {/* Regular — Player Breakdown */}
+          {/* Player Breakdown */}
           <div>
-            <p className="section-header">Regular — Player Breakdown</p>
+            <p className="section-header">Player Breakdown</p>
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
-                  <col className="w-36" />
+                  <col />
                   <col className="w-14" />
+                  <col className="w-12" />
+                  <col className="w-12" />
                   <col className="w-16" />
-                  <col className="w-16" />
-                  <col className="w-24 hidden sm:table-column" />
+                  <col className="w-14" />
+                  <col className="w-20" />
                   <col className="w-56" />
                 </colgroup>
                 <thead>
                   <tr>
                     <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">Player</th>
                     <th className="text-center">Played</th>
-                    <th className="text-center">Win %</th>
+                    <th className="text-center">W</th>
+                    <th className="text-center">L</th>
+                    <th className="text-center">Win%</th>
                     <th className="text-center">Best</th>
-                    <th className="text-right hidden sm:table-cell">Last Played</th>
+                    <th className="text-center">Comebacks</th>
                     <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>
                   </tr>
                 </thead>
@@ -320,18 +349,8 @@ export default function Stats() {
                   {players.map(p => {
                     const s = allStats[p.id]
                     if (!s || s.total === 0) return null
-
-                    const days = s.lastPlayed
-                      ? Math.floor((Date.now() - new Date(s.lastPlayed).getTime()) / 86400000)
-                      : null
-                    const lastStr = days === null ? '—'
-                      : days === 0 ? 'Today'
-                      : days === 1 ? 'Yesterday'
-                      : days < 30 ? `${days}d ago`
-                      : days < 365 ? `${Math.floor(days / 30)}mo ago`
-                      : `${Math.floor(days / 365)}yr ago`
-
-                    const best = { label: s.maxWin > 0 ? `W${s.maxWin}` : '—', cls: 'win-text' }
+                    const comebacks = bo3Map[p.id] ?? 0
+                    const best = s.maxWin > 0 ? `W${s.maxWin}` : '—'
 
                     return (
                       <tr key={p.id}>
@@ -345,13 +364,17 @@ export default function Stats() {
                           </Link>
                         </td>
                         <td className="text-center text-slate-300 tabular-nums text-sm">{s.total}</td>
+                        <td className="text-center win-text tabular-nums">{s.wins}</td>
+                        <td className="text-center loss-text tabular-nums">{s.losses}</td>
                         <td className="text-center text-slate-300 tabular-nums text-sm font-mono">
                           {(s.winRate * 100).toFixed(0)}%
                         </td>
-                        <td className={`text-center font-mono text-sm tabular-nums ${best.cls}`}>
-                          {best.label}
+                        <td className={`text-center font-mono text-sm tabular-nums ${s.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
+                          {best}
                         </td>
-                        <td className="text-right text-slate-500 text-xs hidden sm:table-cell">{lastStr}</td>
+                        <td className="text-center text-slate-300 tabular-nums text-sm">
+                          {comebacks > 0 ? comebacks : <span className="text-slate-700">—</span>}
+                        </td>
                         <td className="text-right pr-5">
                           <div className="flex gap-0.5 justify-end">
                             <LastTenBadges results={s.lastTen} size="sm" />
@@ -364,86 +387,6 @@ export default function Stats() {
               </table>
             </div>
           </div>
-          {/* Best of 3 */}
-          {bo3Players.length > 0 && (
-            <div>
-              <p className="section-header">Best of 3</p>
-              <p className="text-slate-600 text-xs -mt-2 mb-4">Non-tournament best-of-3 matches only</p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                {bo3Records?.most && (
-                  <RecordCard
-                    label="Most Bo3 Matches"
-                    name={n(bo3Records.most.id)}
-                    nameId={bo3Records.most.id}
-                    value={bo3Records.most.count}
-                    valueCls="text-slate-300"
-                  />
-                )}
-                {bo3Records?.bestWinRate && (
-                  <RecordCard
-                    label="Best Bo3 Win Rate"
-                    name={n(bo3Records.bestWinRate.id)}
-                    nameId={bo3Records.bestWinRate.id}
-                    value={`${(bo3Records.bestWinRate.pct * 100).toFixed(0)}%`}
-                    valueCls="text-pool-accent"
-                    sub="min. 3 matches"
-                  />
-                )}
-                {bo3Records?.mostComebacks && (
-                  <RecordCard
-                    label="Most Comeback Wins"
-                    name={n(bo3Records.mostComebacks.id)}
-                    nameId={bo3Records.mostComebacks.id}
-                    value={bo3Records.mostComebacks.count}
-                    valueCls="text-slate-300"
-                    sub="Won after losing game 1"
-                  />
-                )}
-              </div>
-
-              <div className="card overflow-x-auto">
-                <table className="table-base min-w-full">
-                  <colgroup>
-                    <col />
-                    <col className="w-16" />
-                    <col className="w-14" />
-                    <col className="w-14" />
-                    <col className="w-24" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="pl-5 text-left">Player</th>
-                      <th className="text-center">Played</th>
-                      <th className="text-center">W</th>
-                      <th className="text-center">L</th>
-                      <th className="text-right pr-5">Comebacks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bo3Players.map(p => (
-                      <tr key={p.id}>
-                        <td className="pl-5">
-                          <Link
-                            to={`/player/${p.id}`}
-                            className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                          >
-                            <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                            {n(p.id)}
-                          </Link>
-                        </td>
-                        <td className="text-center text-slate-300 tabular-nums text-sm">{p.total}</td>
-                        <td className="text-center win-text tabular-nums">{p.wins}</td>
-                        <td className="text-center loss-text tabular-nums">{p.losses}</td>
-                        <td className="text-right pr-5 text-slate-300 tabular-nums text-sm">{p.comebacks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* Tournament */}
           <div>
             <p className="section-header">Tournament</p>

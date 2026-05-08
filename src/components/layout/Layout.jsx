@@ -16,7 +16,7 @@ if (isTest) {
   touchIcon.rel = 'apple-touch-icon'
   touchIcon.href = `${base}icon-test.png?v=test`
   document.head.appendChild(touchIcon)
-  document.title = 'TEST 8-Ball Pool Tracker'
+  document.title = 'DEV 8-Ball Pool Tracker'
 }
 
 export default function Layout() {

@@ -5,11 +5,20 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { formatDateShort, timeAgo } from '../../lib/dateUtils'
+import { formatDateLong, formatDateShort, timeAgo } from '../../lib/dateUtils'
+import { orderedMatch } from '../../lib/matchUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
+
+function gameSeq(games, playerId) {
+  if (!games?.length) return null
+  return [...games]
+    .sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0))
+    .map(g => g.winner_id === playerId ? 'W' : 'L')
+    .join('-')
+}
 
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
 
@@ -145,8 +154,8 @@ export default function PlayerProfile() {
           .select(`
             id, played_at, format, tournament_id,
             tournament:tournament_id(name),
-            player1:player1_id(id, name),
-            player2:player2_id(id, name),
+            player1:player1_id(id, name, avatar_url),
+            player2:player2_id(id, name, avatar_url),
             winner:winner_id(id, name),
             games(game_number, winner_id)
           `)
@@ -259,6 +268,7 @@ export default function PlayerProfile() {
 
   const recentMatches = allMatches.slice(0, 10)
   const hasMonthlyActivity = monthlyForm.some(m => m.wins + m.losses > 0)
+  const n = pid => nameMap[pid] ?? ''
 
   return (
     <div className="space-y-6">
@@ -578,66 +588,45 @@ export default function PlayerProfile() {
         {recentMatches.length === 0 ? (
           <div className="card p-8 text-center text-slate-600">No matches yet</div>
         ) : (
-          <div className="card overflow-x-auto">
-            <table className="table-base">
-              <colgroup>
-                <col className="w-24" />
-                <col />
-                <col className="w-28" />
-                <col className="w-20" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="pl-5 text-left">Date</th>
-                  <th className="text-left">Opponent</th>
-                  <th className="text-left">Format</th>
-                  <th className="text-right pr-5">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentMatches.map(m => {
-                  const isP1 = m.player1?.id === id
-                  const opponent = isP1 ? m.player2 : m.player1
-                  const won = m.winner?.id === id
-                  const myGames = m.games?.filter(g => g.winner_id === id).length ?? 0
-                  const theirGames = m.games?.filter(g => g.winner_id === opponent?.id).length ?? 0
-
-                  return (
-                    <tr key={m.id}>
-                      <td className="pl-5 text-slate-500 text-xs font-mono whitespace-nowrap">
-                        {formatDateShort(m.played_at)}
-                      </td>
-                      <td>
-                        <Link
-                          to={`/player/${opponent?.id}`}
-                          className="font-medium text-slate-300 hover:text-pool-accent transition-colors"
-                        >
-                          {nameMap[opponent?.id] ?? opponent?.name}
-                        </Link>
-                      </td>
-                      <td className="text-left text-slate-600 text-xs">
-                        {m.tournament
-                          ? m.format === 'best_of_3'
-                            ? `Tournament · Bo3 (${myGames}–${theirGames})`
-                            : 'Tournament · 1 game'
-                          : m.format === 'best_of_3'
-                            ? `Bo3 (${myGames}–${theirGames})`
-                            : '1 game'
-                        }
-                      </td>
-                      <td className="text-right pr-5">
-                        {m.winner
-                          ? won
-                            ? <span className="badge-green">W</span>
-                            : <span className="badge-red">L</span>
-                          : <span className="badge-gray">—</span>
-                        }
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {recentMatches.map(m => {
+              const { left, right, leftScore, rightScore, leftWon, rightWon } = orderedMatch(m)
+              const isBo3 = m.format === 'best_of_3'
+              const leftGames = isBo3 ? gameSeq(m.games, left?.id) : null
+              const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
+              return (
+                <div key={m.id} className="card px-5 py-4">
+                  {m.winner && (
+                    <div className="text-center mb-2">
+                      <span className="badge-green">{n(m.winner.id)} wins</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+                      {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
+                      {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
+                      <span className={`font-bold text-base truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
+                      <Avatar name={left?.name} src={left?.avatar_url} size="sm" />
+                    </div>
+                    <span className="text-slate-600 text-sm shrink-0 w-6 text-center">vs</span>
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <Avatar name={right?.name} src={right?.avatar_url} size="sm" />
+                      <span className={`font-bold text-base truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
+                      {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                      {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center gap-3 text-xs text-slate-600 mt-2">
+                    <span>{formatDateLong(m.played_at)}</span>
+                    <span>·</span>
+                    <span>{m.tournament
+                      ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
+                      : (isBo3 ? 'Best of 3' : 'Single game')
+                    }</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import DateRangeFilter from '../../components/ui/DateRangeFilter'
 
 const FORMATS = ['round_robin', 'bracket']
 
@@ -13,21 +14,37 @@ export default function AdminTournaments() {
   const [form, setForm] = useState({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin', seeding: 'ranked_playoff' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [seasonStart, setSeasonStart] = useState('')
+  const [seasonEnd, setSeasonEnd] = useState('')
+  const [refresh, setRefresh] = useState(0)
 
-  const load = async () => {
-    const [{ data: t }, { data: p }] = await Promise.all([
-      supabase
-        .from('tournaments')
-        .select('id, name, date, format, completed, tournament_participants(player_id)')
-        .order('date', { ascending: false }),
-      supabase.from('players').select('id, name').eq('active', true).order('name'),
-    ])
-    setTournaments(t ?? [])
-    setPlayers(p ?? [])
-    setLoading(false)
-  }
+  useEffect(() => {
+    supabase.from('seasons').select('start_date, end_date').eq('is_active', true).maybeSingle()
+      .then(({ data }) => {
+        setSeasonStart(data?.start_date ?? '')
+        setSeasonEnd(data?.end_date ?? '')
+      })
+    supabase.from('players').select('id, name').eq('active', true).order('name')
+      .then(({ data }) => setPlayers(data ?? []))
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    setLoading(true)
+    let q = supabase
+      .from('tournaments')
+      .select('id, name, date, format, completed, tournament_participants(player_id)')
+      .order('date', { ascending: false })
+    if (from) q = q.gte('date', from)
+    if (to) q = q.lte('date', to)
+    q.then(({ data }) => {
+      setTournaments(data ?? [])
+      setLoading(false)
+    })
+  }, [from, to, refresh])
+
+  const reload = () => setRefresh(r => r + 1)
 
   const createTournament = async (e) => {
     e.preventDefault()
@@ -40,22 +57,29 @@ export default function AdminTournaments() {
     setForm({ name: '', date: new Date().toISOString().slice(0, 10), format: 'round_robin', seeding: 'ranked_playoff' })
     setCreating(false)
     setSaving(false)
-    load()
+    reload()
   }
 
   const deleteTournament = async (id) => {
     if (!confirm('Delete this tournament? Match records linked to it will remain.')) return
     await supabase.from('tournaments').delete().eq('id', id)
-    load()
+    reload()
   }
 
   if (loading) return <LoadingSpinner />
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-slate-500 text-sm">{tournaments.length} tournaments</p>
-        <button onClick={() => setCreating(true)} className="btn-primary text-sm py-1.5">+ New Tournament</button>
+        <div className="flex flex-wrap items-center gap-3">
+          <DateRangeFilter
+            onApply={(f, t) => { setFrom(f); setTo(t) }}
+            seasonStart={seasonStart}
+            seasonEnd={seasonEnd}
+          />
+          <button onClick={() => setCreating(true)} className="btn-primary text-sm py-1.5">+ New Tournament</button>
+        </div>
       </div>
 
       {creating && (
@@ -125,7 +149,7 @@ export default function AdminTournaments() {
           </thead>
           <tbody>
             {tournaments.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-8 text-slate-600">No tournaments yet</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-slate-600">No tournaments in this date range</td></tr>
             ) : tournaments.map(t => (
               <tr key={t.id}>
                 <td className="pl-5 font-medium text-slate-200">

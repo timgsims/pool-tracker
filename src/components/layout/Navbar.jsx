@@ -7,11 +7,12 @@ const isTest = import.meta.env.VITE_ENV_NAME === 'test'
 
 const NAV_LINKS = [
   { to: '/', label: 'Leaderboard', end: true },
-  { to: '/matches', label: 'Matches' },
+  { to: '/matches', label: 'All Matches' },
   { to: '/players', label: 'Players' },
-  { to: '/stats', label: 'Stats' },
+  { to: '/stats', label: 'Bo3 Stats' },
   { to: '/tournaments', label: 'Tournaments' },
   { to: '/tournament-stats', label: 'Tournament Stats' },
+  { to: '/seasons', label: 'Archive', end: true },
   { to: '/rules', label: 'Rules' },
 ]
 
@@ -38,7 +39,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-pool-border bg-pool-surface/95 backdrop-blur-sm">
       {isTest && (
         <div className="bg-orange-500 text-white text-xs font-bold text-center py-1 tracking-widest uppercase">
-          Test Environment
+          Development Environment
         </div>
       )}
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">

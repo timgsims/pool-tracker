@@ -59,7 +59,7 @@ function MatchCard({ match, nameOf, onClick, clickable, isCompleted, isStale }) 
   )
 }
 
-export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = false, staleKeys }) {
+export default function BracketView({ rounds, nameOf, onMatchClick, onViewMatch, readOnly = false, staleKeys }) {
   const numRounds = rounds.length
   if (!numRounds) return null
 
@@ -92,6 +92,7 @@ export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = f
                   && match.player1_id && match.player2_id
                 const matchKey = `${ri}-${match.position}`
                 const isStale = staleKeys?.has(matchKey) ?? false
+                const canView = readOnly && !!onViewMatch && !!match.winner_id
 
                 return (
                   <div
@@ -102,8 +103,8 @@ export default function BracketView({ rounds, nameOf, onMatchClick, readOnly = f
                     <MatchCard
                       match={match}
                       nameOf={nameOf}
-                      onClick={onMatchClick}
-                      clickable={canClick || isStale}
+                      onClick={canView ? onViewMatch : onMatchClick}
+                      clickable={canClick || canView || isStale}
                       isCompleted={!!match.winner_id}
                       isStale={isStale}
                     />

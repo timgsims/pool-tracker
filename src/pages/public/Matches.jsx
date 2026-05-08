@@ -5,6 +5,8 @@ import { formatDateLong } from '../../lib/dateUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
+import DateRangeFilter from '../../components/ui/DateRangeFilter'
+import Avatar from '../../components/ui/Avatar'
 
 const formatDate = formatDateLong
 
@@ -20,30 +22,42 @@ export default function Matches() {
   const [matches, setMatches] = useState([])
   const [nameMap, setNameMap] = useState({})
   const [loading, setLoading] = useState(true)
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [seasonStart, setSeasonStart] = useState('')
+  const [seasonEnd, setSeasonEnd] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      supabase
-        .from('matches')
-        .select(`
-          id, played_at, format, notes,
-          player1:player1_id(id, name),
-          player2:player2_id(id, name),
-          winner:winner_id(id, name),
-          tournament:tournament_id(name),
-          games(game_number, winner_id)
-        `)
-        .order('played_at', { ascending: false })
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('players')
-        .select('id, name'),
-    ]).then(([{ data: m }, { data: p }]) => {
-      setMatches(m ?? [])
-      setNameMap(buildDisplayNames(p ?? []))
+    supabase.from('seasons').select('start_date, end_date').eq('is_active', true).maybeSingle()
+      .then(({ data }) => {
+        setSeasonStart(data?.start_date ?? '')
+        setSeasonEnd(data?.end_date ?? '')
+      })
+    supabase.from('players').select('id, name')
+      .then(({ data }) => setNameMap(buildDisplayNames(data ?? [])))
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    let q = supabase
+      .from('matches')
+      .select(`
+        id, played_at, format, notes,
+        player1:player1_id(id, name, avatar_url),
+        player2:player2_id(id, name, avatar_url),
+        winner:winner_id(id, name),
+        tournament:tournament_id(name),
+        games(game_number, winner_id)
+      `)
+      .order('played_at', { ascending: false })
+      .order('created_at', { ascending: false })
+    if (from) q = q.gte('played_at', from)
+    if (to) q = q.lte('played_at', to + 'T23:59:59')
+    q.then(({ data }) => {
+      setMatches(data ?? [])
       setLoading(false)
     })
-  }, [])
+  }, [from, to])
 
   if (loading) return <LoadingSpinner />
 
@@ -55,6 +69,12 @@ export default function Matches() {
         <p className="section-header">History</p>
         <h1 className="page-title">All Matches</h1>
       </div>
+
+      <DateRangeFilter
+        onApply={(f, t) => { setFrom(f); setTo(t) }}
+        seasonStart={seasonStart}
+        seasonEnd={seasonEnd}
+      />
 
       {matches.length === 0 ? (
         <div className="card">
@@ -70,37 +90,33 @@ export default function Matches() {
 
             return (
               <div key={m.id} className="card px-5 py-4">
+                {m.winner && (
+                  <div className="text-center mb-2">
+                    <span className="badge-green">{n(m.winner.id)} wins</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
-                  {/* Left side — right-aligned */}
                   <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                     {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
                     {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                     <span className={`font-bold text-base truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
+                    <Avatar name={left?.name} src={left?.avatar_url} size="sm" />
                   </div>
-
-                  {/* Center pivot */}
                   <span className="text-slate-600 text-sm shrink-0 w-6 text-center">vs</span>
-
-                  {/* Right side — left-aligned */}
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <Avatar name={right?.name} src={right?.avatar_url} size="sm" />
                     <span className={`font-bold text-base truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
                     {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                     {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center gap-3 text-xs text-slate-600">
-                    <span>{formatDate(m.played_at)}</span>
-                    <span>·</span>
-                    <span>{m.tournament
-                      ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
-                      : (isBo3 ? 'Best of 3' : 'Single game')
-                    }</span>
-                  </div>
-                  {m.winner && (
-                    <span className="badge-green shrink-0">{n(m.winner.id)} wins</span>
-                  )}
+                <div className="flex items-center justify-center gap-3 text-xs text-slate-600 mt-2">
+                  <span>{formatDate(m.played_at)}</span>
+                  <span>·</span>
+                  <span>{m.tournament
+                    ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
+                    : (isBo3 ? 'Best of 3' : 'Single game')
+                  }</span>
                 </div>
               </div>
             )

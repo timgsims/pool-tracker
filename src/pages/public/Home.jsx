@@ -225,7 +225,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
 
 // ─── Head-to-Head tab ─────────────────────────────────────────────────────────
 
-function H2HTab({ players, h2hData, nameMap }) {
+function H2HTab({ players, h2hData, nameMap, playerAvatars = {} }) {
   const [expanded, setExpanded] = useState(null)
   const [matchHistory, setMatchHistory] = useState({})
 
@@ -268,7 +268,10 @@ function H2HTab({ players, h2hData, nameMap }) {
               <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">vs</th>
               {players.map(p => (
                 <th key={p.player_id} className="text-center whitespace-nowrap px-2">
-                  {n(p.player_id)}
+                  <div className="flex flex-col items-center gap-1">
+                    <Avatar name={n(p.player_id)} src={playerAvatars[p.player_id]} size="sm" />
+                    <span>{n(p.player_id)}</span>
+                  </div>
                 </th>
               ))}
               <th className="text-center pr-5 whitespace-nowrap">Overall</th>
@@ -282,8 +285,9 @@ function H2HTab({ players, h2hData, nameMap }) {
                   <td className="pl-5 font-semibold text-slate-200 sticky left-0 bg-pool-card z-10">
                     <Link
                       to={`/player/${row.player_id}`}
-                      className="hover:text-pool-accent transition-colors"
+                      className="flex items-center gap-2 hover:text-pool-accent transition-colors"
                     >
+                      <Avatar name={n(row.player_id)} src={playerAvatars[row.player_id]} size="sm" />
                       {n(row.player_id)}
                     </Link>
                   </td>
@@ -372,16 +376,18 @@ function H2HTab({ players, h2hData, nameMap }) {
                     onClick={handleClick}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-pool-elevated transition-colors text-left"
                   >
-                    <span className={`font-semibold flex-1 text-right ${leftW > rightW ? 'win-text' : leftW < rightW ? 'loss-text' : 'text-slate-400'}`}>
-                      {n(left.player_id)}
-                    </span>
-                    <span className="font-mono text-lg font-bold text-slate-300 tabular-nums w-16 text-center">
+                    <div className={`flex items-center gap-2 flex-1 justify-end min-w-0 ${leftW > rightW ? 'win-text' : leftW < rightW ? 'loss-text' : 'text-slate-400'}`}>
+                      <span className="font-semibold truncate">{n(left.player_id)}</span>
+                      <Avatar name={n(left.player_id)} src={playerAvatars[left.player_id]} size="sm" />
+                    </div>
+                    <span className="font-mono text-lg font-bold text-slate-300 tabular-nums w-16 text-center shrink-0">
                       {leftW}–{rightW}
                     </span>
-                    <span className={`font-semibold flex-1 ${rightW > leftW ? 'win-text' : rightW < leftW ? 'loss-text' : 'text-slate-400'}`}>
-                      {n(right.player_id)}
-                    </span>
-                    <div className="flex items-center gap-2 w-20 justify-end">
+                    <div className={`flex items-center gap-2 flex-1 min-w-0 ${rightW > leftW ? 'win-text' : rightW < leftW ? 'loss-text' : 'text-slate-400'}`}>
+                      <Avatar name={n(right.player_id)} src={playerAvatars[right.player_id]} size="sm" />
+                      <span className="font-semibold truncate">{n(right.player_id)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-20 justify-end shrink-0">
                       <span className="text-slate-600 text-xs">
                         {record.matches_played} match{record.matches_played !== 1 ? 'es' : ''}
                       </span>
@@ -526,6 +532,8 @@ export default function Home() {
             winner:winner_id(id, name),
             games(game_number, winner_id)
           `)
+          .is('tournament_id', null)
+          .eq('format', 'best_of_3')
           .order('played_at', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(8),
@@ -616,7 +624,7 @@ export default function Home() {
           nameMap={nameMap}
         />
       )}
-      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} />}
+      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} playerAvatars={playerAvatars} />}
       {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} activeSeason={activeSeason} />}
 
       {/* Recent results — only on Overall tab */}
@@ -642,31 +650,33 @@ export default function Home() {
                 const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
                 return (
                   <div key={m.id} className="card px-5 py-4">
+                    {m.winner && (
+                      <div className="text-center mb-2">
+                        <span className="badge-green">{n(m.winner?.id)} wins</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                         {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
                         {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                         <span className={`font-bold text-base truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
+                        <Avatar name={left?.name} src={left?.avatar_url} size="sm" />
                       </div>
                       <span className="text-slate-600 text-sm shrink-0 w-6 text-center">vs</span>
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <Avatar name={right?.name} src={right?.avatar_url} size="sm" />
                         <span className={`font-bold text-base truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
                         {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                         {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-3 text-xs text-slate-600">
-                        <span>{formatDate(m.played_at)}</span>
-                        <span>·</span>
-                        <span>{m.tournament_id
-                          ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
-                          : (isBo3 ? 'Best of 3' : 'Single game')
-                        }</span>
-                      </div>
-                      {m.winner && (
-                        <span className="badge-green shrink-0">{n(m.winner?.id)} wins</span>
-                      )}
+                    <div className="flex items-center justify-center gap-3 text-xs text-slate-600 mt-2">
+                      <span>{formatDate(m.played_at)}</span>
+                      <span>·</span>
+                      <span>{m.tournament_id
+                        ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
+                        : (isBo3 ? 'Best of 3' : 'Single game')
+                      }</span>
                     </div>
                   </div>
                 )

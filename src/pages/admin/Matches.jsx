@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort, isoToNZLocal, nzLocalToISO } from '../../lib/dateUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import DateRangeFilter from '../../components/ui/DateRangeFilter'
 
 function EditMatchModal({ match, allPlayers, onClose, onSaved }) {
   const [p1, setP1] = useState(match.player1?.id ?? '')
@@ -176,38 +177,50 @@ export default function AdminMatches() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [seasonStart, setSeasonStart] = useState('')
+  const [seasonEnd, setSeasonEnd] = useState('')
+  const [refresh, setRefresh] = useState(0)
 
-  const load = () =>
-    Promise.all([
-      supabase
-        .from('matches')
-        .select(`
-          id, played_at, format, tournament_id,
-          player1:player1_id(id, name),
-          player2:player2_id(id, name),
-          winner:winner_id(id, name),
-          games(game_number, winner_id)
-        `)
-        .order('played_at', { ascending: false }),
-      supabase
-        .from('players')
-        .select('id, name')
-        .eq('active', true)
-        .order('name'),
-    ]).then(([{ data: m }, { data: p }]) => {
-      setMatches(m ?? [])
-      setAllPlayers(p ?? [])
+  useEffect(() => {
+    supabase.from('seasons').select('start_date, end_date').eq('is_active', true).maybeSingle()
+      .then(({ data }) => {
+        setSeasonStart(data?.start_date ?? '')
+        setSeasonEnd(data?.end_date ?? '')
+      })
+    supabase.from('players').select('id, name').eq('active', true).order('name')
+      .then(({ data }) => setAllPlayers(data ?? []))
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    let q = supabase
+      .from('matches')
+      .select(`
+        id, played_at, format, tournament_id,
+        player1:player1_id(id, name),
+        player2:player2_id(id, name),
+        winner:winner_id(id, name),
+        games(game_number, winner_id)
+      `)
+      .order('played_at', { ascending: false })
+    if (from) q = q.gte('played_at', from)
+    if (to) q = q.lte('played_at', to + 'T23:59:59')
+    q.then(({ data }) => {
+      setMatches(data ?? [])
       setLoading(false)
     })
+  }, [from, to, refresh])
 
-  useEffect(() => { load() }, [])
+  const reload = () => setRefresh(r => r + 1)
 
   const deleteMatch = async (id) => {
     if (!confirm('Delete this match and all its game results? This cannot be undone.')) return
     setDeleting(id)
     await supabase.from('matches').delete().eq('id', id)
     setDeleting(null)
-    load()
+    reload()
   }
 
   if (loading) return <LoadingSpinner />
@@ -219,13 +232,18 @@ export default function AdminMatches() {
           match={editing}
           allPlayers={allPlayers}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); load() }}
+          onSaved={() => { setEditing(null); reload() }}
         />
       )}
 
-      <p className="text-slate-500 text-sm">
-        {matches.length} matches total. Deleting a match also removes its individual game records.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-slate-500 text-sm">{matches.length} matches</p>
+        <DateRangeFilter
+          onApply={(f, t) => { setFrom(f); setTo(t) }}
+          seasonStart={seasonStart}
+          seasonEnd={seasonEnd}
+        />
+      </div>
 
       <div className="card overflow-x-auto">
         <table className="table-base">
@@ -247,7 +265,7 @@ export default function AdminMatches() {
           </thead>
           <tbody>
             {matches.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-8 text-slate-600">No matches yet</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-slate-600">No matches in this date range</td></tr>
             ) : matches.map(m => {
               const { left, right } = orderedMatch(m)
               return (

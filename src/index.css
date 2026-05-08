@@ -33,15 +33,12 @@
   input[type="date"],
   input[type="datetime-local"],
   input[type="time"] {
-    -webkit-appearance: none;
-    appearance: none;
     display: block;
     width: 100%;
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
-    height: 2.75rem;
-    line-height: 1.5;
+    color-scheme: dark;
   }
 }
 
@@ -100,7 +97,7 @@
   }
 
   .table-base th {
-    @apply text-xs font-semibold uppercase tracking-wider text-slate-500 pb-3 px-3;
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-500 py-3 px-3 align-middle;
   }
 
   .table-base td {

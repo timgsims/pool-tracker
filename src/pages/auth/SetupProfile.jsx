@@ -65,7 +65,7 @@ export default function SetupProfile() {
                 <input
                   autoFocus
                   className="input"
-                  placeholder="Tim"
+                  placeholder="First"
                   value={firstName}
                   onChange={e => setFirstName(e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1))}
                   maxLength={30}
@@ -76,7 +76,7 @@ export default function SetupProfile() {
                 <label className="label">Last name</label>
                 <input
                   className="input"
-                  placeholder="Stewart"
+                  placeholder="Last"
                   value={lastName}
                   onChange={e => setLastName(e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1))}
                   maxLength={30}

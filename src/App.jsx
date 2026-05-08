@@ -12,6 +12,8 @@ import Stats from './pages/public/Stats'
 import Players from './pages/public/Players'
 import TournamentStats from './pages/public/TournamentStats'
 import Rules from './pages/public/Rules'
+import ArchivedSeasons from './pages/public/ArchivedSeasons'
+import SeasonDetail from './pages/public/SeasonDetail'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -68,6 +70,8 @@ export default function App() {
               <Route path="player/:id" element={<PlayerProfile />} />
               <Route path="stats" element={<Stats />} />
               <Route path="players" element={<Players />} />
+              <Route path="seasons" element={<ArchivedSeasons />} />
+              <Route path="seasons/:id" element={<SeasonDetail />} />
               <Route path="login" element={<Login />} />
               <Route path="setup-profile" element={<SetupProfile />} />
               <Route path="auth/reset-password" element={<ResetPassword />} />

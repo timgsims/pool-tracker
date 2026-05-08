@@ -5,37 +5,134 @@ import { buildDisplayNames } from '../../lib/nameUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Avatar from '../../components/ui/Avatar'
 
+// ─── Computation helpers ──────────────────────────────────────────────────────
+
+function computePlayerStats(matches, pid) {
+  const pm = matches.filter(m => m.player1_id === pid || m.player2_id === pid)
+  if (!pm.length) return null
+
+  const wins = pm.filter(m => m.winner_id === pid).length
+  const total = pm.length
+
+  let curW = 0, curL = 0, maxW = 0, maxL = 0
+  for (const m of pm) {
+    const won = m.winner_id === pid
+    if (won) { curW++; curL = 0 } else { curL++; curW = 0 }
+    if (curW > maxW) maxW = curW
+    if (curL > maxL) maxL = curL
+  }
+
+  const rev = [...pm].reverse()
+  let curStreakType = null, curStreakCount = 0
+  if (rev.length) {
+    curStreakType = rev[0].winner_id === pid ? 'W' : 'L'
+    for (const m of rev) {
+      const won = m.winner_id === pid
+      if ((curStreakType === 'W') === won) curStreakCount++
+      else break
+    }
+  }
+
+  return {
+    total,
+    wins,
+    losses: total - wins,
+    winRate: total > 0 ? wins / total : 0,
+    maxWin: maxW,
+    maxLoss: maxL,
+    curStreak: { type: curStreakType, count: curStreakCount },
+    lastTen: rev.slice(0, 10).map(m => m.winner_id === pid ? 'W' : 'L'),
+    lastPlayed: rev[0]?.played_at ?? null,
+  }
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+
+function RecordCard({ label, name, nameId, value, valueCls = 'text-pool-accent', sub }) {
+  return (
+    <div className="card p-4 flex flex-col">
+      <p className="section-header">{label}</p>
+      <div className="mt-auto pt-1.5 space-y-0.5">
+        {nameId
+          ? <Link to={`/player/${nameId}`} className="text-slate-100 font-semibold text-sm hover:text-pool-accent transition-colors block">{name}</Link>
+          : name && <p className="text-slate-100 font-semibold text-sm">{name}</p>
+        }
+        <p className={`text-2xl font-bold tabular-nums ${valueCls}`}>{value}</p>
+        {sub && <p className="text-slate-600 text-xs">{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+function LastTenBadges({ results }) {
+  if (!results?.length) return <span className="text-slate-600 text-xs">—</span>
+  return (
+    <div className="flex gap-0.5">
+      {results.map((r, i) => (
+        <span
+          key={i}
+          className={`w-5 h-5 text-[10px] flex items-center justify-center rounded font-bold ${
+            r === 'W'
+              ? 'bg-green-900/50 text-pool-win border border-green-800/60'
+              : 'bg-red-900/50 text-pool-loss border border-red-900/60'
+          }`}
+        >
+          {r}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function TournamentStats() {
   const [loading, setLoading] = useState(true)
   const [players, setPlayers] = useState([])
-  const [tournaments, setTournaments] = useState([])
   const [tournamentMatches, setTournamentMatches] = useState([])
-  const [participants, setParticipants] = useState([])
   const [nameMap, setNameMap] = useState({})
+  const [allStats, setAllStats] = useState({})
+  const [tWins, setTWins] = useState({})
+  const [tEntered, setTEntered] = useState({})
 
   useEffect(() => {
     async function load() {
       const [
         { data: p },
-        { data: t },
         { data: m },
         { data: parts },
       ] = await Promise.all([
         supabase.from('players').select('id, name, avatar_url').eq('active', true),
-        supabase.from('tournaments').select('id, name, date, created_at, tiebreaker_activated_at, format').order('date', { ascending: false }),
         supabase
           .from('matches')
-          .select('id, played_at, player1_id, player2_id, winner_id, tournament_id')
+          .select('id, played_at, format, player1_id, player2_id, winner_id, tournament_id')
           .not('tournament_id', 'is', null)
-          .not('winner_id', 'is', null),
+          .not('winner_id', 'is', null)
+          .order('played_at', { ascending: true }),
         supabase.from('tournament_participants').select('tournament_id, player_id, final_position'),
       ])
 
-      setPlayers(p ?? [])
-      setTournaments(t ?? [])
-      setTournamentMatches(m ?? [])
-      setParticipants(parts ?? [])
-      setNameMap(buildDisplayNames(p ?? []))
+      const playerList = p ?? []
+      const matchList = m ?? []
+      const partList = parts ?? []
+      const playerIds = playerList.map(pl => pl.id)
+
+      const stats = {}
+      for (const pid of playerIds) stats[pid] = computePlayerStats(matchList, pid)
+
+      const wins = {}
+      const entered = {}
+      for (const pa of partList) {
+        entered[pa.player_id] = (entered[pa.player_id] ?? 0) + 1
+        if (pa.final_position === 1) wins[pa.player_id] = (wins[pa.player_id] ?? 0) + 1
+      }
+
+      setPlayers(playerList)
+      setTournamentMatches(matchList)
+      setNameMap(buildDisplayNames(playerList))
+      setAllStats(stats)
+      setTWins(wins)
+      setTEntered(entered)
       setLoading(false)
     }
     load()
@@ -44,63 +141,31 @@ export default function TournamentStats() {
   if (loading) return <LoadingSpinner />
 
   const n = id => nameMap[id] ?? ''
+  const avatarMap = Object.fromEntries(players.map(p => [p.id, p.avatar_url]))
 
-  const playerList = players ?? []
-  const matchList = tournamentMatches ?? []
-  const partList = participants ?? []
+  const playerIds = players.map(p => p.id)
+  const matchList = tournamentMatches
 
-  // Overall tournament record per player
-  const playerRecords = playerList
-    .map(p => {
-      const entered = new Set(partList.filter(pa => pa.player_id === p.id).map(pa => pa.tournament_id)).size
-      if (entered === 0) return null
-      const pm = matchList.filter(m => m.player1_id === p.id || m.player2_id === p.id)
-      const wins = pm.filter(m => m.winner_id === p.id).length
-      const losses = pm.length - wins
-      return { ...p, entered, wins, losses, total: pm.length, winRate: pm.length > 0 ? wins / pm.length : null }
-    })
-    .filter(Boolean)
-    .sort((a, b) => (b.winRate ?? -1) - (a.winRate ?? -1) || b.wins - a.wins)
+  const withStats = playerIds.filter(id => (allStats[id]?.total ?? 0) > 0)
+  const hasData = withStats.length > 0
 
-  // Per-tournament standings
-  const tournamentResults = tournaments.map(t => {
-    const tMatches = matchList.filter(m => m.tournament_id === t.id)
-    const tParts = partList.filter(pa => pa.tournament_id === t.id)
+  const mostMatchesId = [...withStats].sort((a, b) => (allStats[b]?.total ?? 0) - (allStats[a]?.total ?? 0))[0] ?? null
+  const bestWinRateId = withStats.filter(id => (allStats[id]?.total ?? 0) >= 3).sort((a, b) => (allStats[b]?.winRate ?? 0) - (allStats[a]?.winRate ?? 0))[0] ?? null
+  const mostTourneysWonId = playerIds.filter(id => (tWins[id] ?? 0) > 0).sort((a, b) => (tWins[b] ?? 0) - (tWins[a] ?? 0))[0] ?? null
+  const mostEnteredId = playerIds.filter(id => (tEntered[id] ?? 0) > 0).sort((a, b) => (tEntered[b] ?? 0) - (tEntered[a] ?? 0))[0] ?? null
+  const longestWin = withStats.reduce((best, pid) => {
+    const v = allStats[pid]?.maxWin ?? 0
+    return v > best.count ? { id: pid, count: v } : best
+  }, { id: null, count: 0 })
+  const longestLoss = withStats.reduce((best, pid) => {
+    const v = allStats[pid]?.maxLoss ?? 0
+    return v > best.count ? { id: pid, count: v } : best
+  }, { id: null, count: 0 })
 
-    // Complete only when every participant has a final_position assigned by the admin
-    const isComplete = tParts.length > 0 && tParts.every(tp => tp.final_position != null)
-    const winnerId = isComplete
-      ? (tParts.find(tp => tp.final_position === 1)?.player_id ?? null)
-      : null
-
-    // Standings: per-participant wins/losses in this tournament
-    const standings = tParts
-      .map(tp => {
-        const pm = tMatches.filter(m => m.player1_id === tp.player_id || m.player2_id === tp.player_id)
-        const w = pm.filter(m => m.winner_id === tp.player_id).length
-        const l = pm.length - w
-        return { player_id: tp.player_id, wins: w, losses: l, played: pm.length }
-      })
-      .filter(s => s.played > 0)
-      .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-
-    const activityCandidates = [
-      ...tMatches.map(m => m.played_at),
-      t.tiebreaker_activated_at,
-      t.created_at,
-    ].filter(Boolean)
-    const latestActivity = activityCandidates.sort().reverse()[0] ?? ''
-
-    return { ...t, winnerId, isComplete, standings, latestActivity }
-  }).filter(t => t.standings.length > 0)
-    .sort((a, b) => {
-      const ac = a.winnerId ? 1 : 0
-      const bc = b.winnerId ? 1 : 0
-      if (ac !== bc) return ac - bc
-      return b.latestActivity.localeCompare(a.latestActivity)
-    })
-
-  const hasData = playerRecords.length > 0
+  const playerBreakdown = [...players]
+    .map(p => ({ ...p, stats: allStats[p.id], entered: tEntered[p.id] ?? 0, won: tWins[p.id] ?? 0 }))
+    .filter(p => p.stats?.total > 0)
+    .sort((a, b) => (b.stats.winRate - a.stats.winRate) || (b.stats.wins - a.stats.wins))
 
   return (
     <div className="space-y-8">
@@ -113,117 +178,137 @@ export default function TournamentStats() {
         <div className="card p-8 text-center text-slate-600">No tournament match data yet.</div>
       ) : (
         <>
-          {/* Overall tournament records */}
+          {/* Record highlights */}
           <div>
-            <p className="section-header">Tournament Records</p>
-            <p className="text-slate-600 text-xs -mt-2 mb-3">Wins and losses from tournament matches only</p>
+            <p className="section-header">Records</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {mostTourneysWonId && (
+                <RecordCard
+                  label="Most Tournaments Won"
+                  name={n(mostTourneysWonId)}
+                  nameId={mostTourneysWonId}
+                  value={tWins[mostTourneysWonId]}
+                  valueCls="text-amber-400"
+                  sub={tWins[mostTourneysWonId] === 1 ? 'tournament' : 'tournaments'}
+                />
+              )}
+              {mostEnteredId && (
+                <RecordCard
+                  label="Most Tournaments Entered"
+                  name={n(mostEnteredId)}
+                  nameId={mostEnteredId}
+                  value={tEntered[mostEnteredId]}
+                  valueCls="text-slate-300"
+                  sub={tEntered[mostEnteredId] === 1 ? 'tournament' : 'tournaments'}
+                />
+              )}
+              {mostMatchesId && allStats[mostMatchesId] && (
+                <RecordCard
+                  label="Most Matches Played"
+                  name={n(mostMatchesId)}
+                  nameId={mostMatchesId}
+                  value={allStats[mostMatchesId].total}
+                  valueCls="text-slate-300"
+                  sub="tournament matches"
+                />
+              )}
+              {bestWinRateId && allStats[bestWinRateId] && (
+                <RecordCard
+                  label="Best Win Rate"
+                  name={n(bestWinRateId)}
+                  nameId={bestWinRateId}
+                  value={`${(allStats[bestWinRateId].winRate * 100).toFixed(0)}%`}
+                  valueCls="text-pool-accent"
+                  sub="min. 3 matches"
+                />
+              )}
+              {longestWin.count > 0 && (
+                <RecordCard
+                  label="Longest Win Streak"
+                  name={n(longestWin.id)}
+                  nameId={longestWin.id}
+                  value={`W${longestWin.count}`}
+                  valueCls="win-text"
+                />
+              )}
+              {longestLoss.count > 0 && (
+                <RecordCard
+                  label="Longest Loss Streak"
+                  name={n(longestLoss.id)}
+                  nameId={longestLoss.id}
+                  value={`L${longestLoss.count}`}
+                  valueCls="loss-text"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Player breakdown */}
+          <div>
+            <p className="section-header">Player Breakdown</p>
+            <p className="text-slate-600 text-xs -mt-2 mb-3">Tournament matches only — streaks and recent form</p>
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
                   <col />
-                  <col className="w-24" />
+                  <col className="w-16" />
+                  <col className="w-12" />
                   <col className="w-12" />
                   <col className="w-12" />
                   <col className="w-16" />
-                  <col className="w-20" />
+                  <col className="w-14" />
+                  <col className="w-56" />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="pl-5 text-left">Player</th>
+                    <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">Player</th>
                     <th className="text-center">Entered</th>
+                    <th className="text-center">Won</th>
                     <th className="text-center">W</th>
                     <th className="text-center">L</th>
-                    <th className="text-center hidden sm:table-cell">Played</th>
-                    <th className="text-right pr-5">Win %</th>
+                    <th className="text-center">Win%</th>
+                    <th className="text-center">Best</th>
+                    <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {playerRecords.map(p => (
-                    <tr key={p.id}>
-                      <td className="pl-5">
-                        <Link
-                          to={`/player/${p.id}`}
-                          className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                        >
-                          <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                          {n(p.id)}
-                        </Link>
-                      </td>
-                      <td className="text-center text-slate-500 tabular-nums text-sm">{p.entered}</td>
-                      <td className="text-center win-text tabular-nums">{p.wins}</td>
-                      <td className="text-center loss-text tabular-nums">{p.losses}</td>
-                      <td className="text-center text-slate-500 tabular-nums text-sm hidden sm:table-cell">{p.total}</td>
-                      <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
-                        {p.winRate != null ? `${(p.winRate * 100).toFixed(0)}%` : '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {playerBreakdown.map(p => {
+                    const s = p.stats
+                    return (
+                      <tr key={p.id}>
+                        <td className="pl-5 sticky left-0 bg-pool-card z-10">
+                          <Link
+                            to={`/player/${p.id}`}
+                            className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+                          >
+                            <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                            {n(p.id)}
+                          </Link>
+                        </td>
+                        <td className="text-center text-slate-500 tabular-nums text-sm">{p.entered}</td>
+                        <td className="text-center tabular-nums text-sm">
+                          {p.won > 0
+                            ? <span className="text-amber-400">🏆{p.won > 1 ? ` ×${p.won}` : ''}</span>
+                            : <span className="text-slate-700">—</span>}
+                        </td>
+                        <td className="text-center win-text tabular-nums">{s.wins}</td>
+                        <td className="text-center loss-text tabular-nums">{s.losses}</td>
+                        <td className="text-center text-slate-300 font-mono tabular-nums text-sm">
+                          {(s.winRate * 100).toFixed(0)}%
+                        </td>
+                        <td className={`text-center font-mono text-sm tabular-nums ${s.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
+                          {s.maxWin > 0 ? `W${s.maxWin}` : '—'}
+                        </td>
+                        <td className="text-right pr-5">
+                          <div className="flex gap-0.5 justify-end">
+                            <LastTenBadges results={s.lastTen} />
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          {/* Per-tournament results */}
-          <div>
-            <p className="section-header">Tournament Results</p>
-            <div className="space-y-4">
-              {tournamentResults.map(t => (
-                <div key={t.id} className="card p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-100">{t.name}</p>
-                      <p className="text-slate-600 text-xs mt-0.5">
-                        {new Date(t.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        {' · '}
-                        {t.format === 'round_robin' ? 'Round Robin' : 'Bracket'}
-                      </p>
-                    </div>
-                    {t.winnerId ? (
-                      <div className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg bg-amber-900/20 border border-amber-700/40">
-                        <span className="text-amber-400 text-sm">🏆</span>
-                        <span className="text-amber-300 text-sm font-semibold">{n(t.winnerId)}</span>
-                      </div>
-                    ) : (
-                      <span className="badge-gray shrink-0">In Progress</span>
-                    )}
-                  </div>
-
-                  {t.standings.length > 0 && (
-                    <div className="divide-y divide-pool-border/40">
-                      {t.standings.map((s, i) => {
-                        const total = s.wins + s.losses
-                        const pct = total > 0 ? Math.round((s.wins / total) * 100) : null
-                        return (
-                          <div key={s.player_id} className="flex items-center justify-between py-2 first:pt-0 last:pb-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-slate-600 text-xs font-mono w-4">{i + 1}</span>
-                              <Link
-                                to={`/player/${s.player_id}`}
-                                className="text-sm font-medium text-slate-300 hover:text-pool-accent transition-colors"
-                              >
-                                {n(s.player_id)}
-                              </Link>
-                              {s.player_id === t.winnerId && (
-                                <span className="text-amber-400 text-xs">🏆</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="font-mono tabular-nums">
-                                <span className="win-text">{s.wins}W</span>
-                                <span className="text-slate-600 mx-1">–</span>
-                                <span className="loss-text">{s.losses}L</span>
-                              </span>
-                              {pct != null && (
-                                <span className="text-slate-500 font-mono text-xs tabular-nums w-10 text-right">{pct}%</span>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         </>
