@@ -131,6 +131,16 @@ export default function AdminSeasons() {
   const [editEnd, setEditEnd] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // Edit champion
+  const [editingChampionId, setEditingChampionId] = useState(null)
+  const [editChampion, setEditChampion] = useState('')
+  const [savingChampion, setSavingChampion] = useState(false)
+
+  // Edit name
+  const [editingNameId, setEditingNameId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   // Complete modal
   const [completing, setCompleting] = useState(null)
 
@@ -169,6 +179,30 @@ export default function AdminSeasons() {
     if (error) { setError(error.message); setSavingEdit(false); return }
     setSavingEdit(false)
     setEditingId(null)
+    load()
+  }
+
+  const saveName = async (seasonId) => {
+    if (!editName.trim()) return
+    setSavingName(true)
+    setError('')
+    const { error } = await supabase.from('seasons').update({ name: editName.trim() }).eq('id', seasonId)
+    if (error) { setError(error.message); setSavingName(false); return }
+    setSavingName(false)
+    setEditingNameId(null)
+    load()
+  }
+
+  const saveChampion = async (seasonId) => {
+    setSavingChampion(true)
+    setError('')
+    const { error } = await supabase
+      .from('seasons')
+      .update({ champion_player_id: editChampion || null })
+      .eq('id', seasonId)
+    if (error) { setError(error.message); setSavingChampion(false); return }
+    setSavingChampion(false)
+    setEditingChampionId(null)
     load()
   }
 
@@ -212,7 +246,31 @@ export default function AdminSeasons() {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-pool-accent uppercase tracking-wider">Active Season</span>
               </div>
-              <h2 className="text-xl font-bold text-slate-100 mt-1">{activeSeason.name}</h2>
+              {editingNameId === activeSeason.id ? (
+                <span className="inline-flex items-center gap-2 mt-1">
+                  <input
+                    autoFocus
+                    className="input py-0.5 text-sm h-auto w-40"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveName(activeSeason.id); if (e.key === 'Escape') setEditingNameId(null) }}
+                  />
+                  <button onClick={() => saveName(activeSeason.id)} disabled={savingName} className="text-pool-accent text-xs hover:text-pool-accent-dim transition-colors">
+                    {savingName ? 'Saving…' : 'Save'}
+                  </button>
+                  <button onClick={() => setEditingNameId(null)} className="text-slate-500 text-xs hover:text-slate-300 transition-colors">Cancel</button>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 mt-1">
+                  <h2 className="text-xl font-bold text-slate-100">{activeSeason.name}</h2>
+                  <button
+                    onClick={() => { setEditingNameId(activeSeason.id); setEditName(activeSeason.name) }}
+                    className="text-slate-500 hover:text-slate-300 text-xs transition-colors"
+                  >
+                    Edit name
+                  </button>
+                </span>
+              )}
               <p className="text-slate-500 text-sm mt-0.5">
                 {formatDate(activeSeason.start_date)} →{' '}
                 {editingId === activeSeason.id ? (
@@ -317,13 +375,75 @@ export default function AdminSeasons() {
               <tbody>
                 {completedSeasons.map(s => (
                   <tr key={s.id}>
-                    <td className="pl-5 font-medium text-slate-200">{s.name}</td>
+                    <td className="pl-5 font-medium text-slate-200">
+                      {editingNameId === s.id ? (
+                        <span className="inline-flex items-center gap-2">
+                          <input
+                            autoFocus
+                            className="input py-0.5 text-sm h-auto w-32"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveName(s.id); if (e.key === 'Escape') setEditingNameId(null) }}
+                          />
+                          <button onClick={() => saveName(s.id)} disabled={savingName} className="text-pool-accent text-xs hover:text-pool-accent-dim transition-colors">
+                            {savingName ? 'Saving…' : 'Save'}
+                          </button>
+                          <button onClick={() => setEditingNameId(null)} className="text-slate-500 text-xs hover:text-slate-300 transition-colors">Cancel</button>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2">
+                          {s.name}
+                          <button
+                            onClick={() => { setEditingNameId(s.id); setEditName(s.name) }}
+                            className="text-slate-600 hover:text-slate-300 text-xs transition-colors font-normal"
+                          >
+                            Edit
+                          </button>
+                        </span>
+                      )}
+                    </td>
                     <td className="text-slate-500 text-sm">{formatDate(s.start_date)}</td>
                     <td className="text-slate-500 text-sm">{formatDate(s.end_date)}</td>
                     <td className="pr-5">
-                      {s.champion
-                        ? <span className="text-amber-400 font-semibold text-sm">🏆 {s.champion.name}</span>
-                        : <span className="text-slate-600 text-sm">—</span>}
+                      {editingChampionId === s.id ? (
+                        <span className="inline-flex items-center gap-2 flex-wrap">
+                          <select
+                            className="input py-0.5 text-xs h-auto w-auto"
+                            value={editChampion}
+                            onChange={e => setEditChampion(e.target.value)}
+                          >
+                            <option value="">— No champion —</option>
+                            {players.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => saveChampion(s.id)}
+                            disabled={savingChampion}
+                            className="text-pool-accent text-xs hover:text-pool-accent-dim transition-colors"
+                          >
+                            {savingChampion ? 'Saving…' : 'Save'}
+                          </button>
+                          <button
+                            onClick={() => setEditingChampionId(null)}
+                            className="text-slate-500 text-xs hover:text-slate-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2">
+                          {s.champion
+                            ? <span className="text-amber-400 font-semibold text-sm">🏆 {s.champion.name}</span>
+                            : <span className="text-slate-600 text-sm">—</span>}
+                          <button
+                            onClick={() => { setEditingChampionId(s.id); setEditChampion(s.champion?.id ?? '') }}
+                            className="text-slate-600 hover:text-slate-300 text-xs transition-colors"
+                          >
+                            Edit
+                          </button>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

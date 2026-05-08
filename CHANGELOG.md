@@ -4,6 +4,29 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.7.0 — 2026-05-09
+
+### Added
+- Stats: All Time view shows Longest Win Streak, Longest Loss Streak, and Busiest Day records — excluding historical seasons marked as date-unreliable via the new `stats_available` flag
+- Stats: season selector lists all completed past seasons with real match data as individual options
+- Tournament Stats: full season selector (Current Season | past seasons | All Time) with season-scoped filtering for both matches and tournament wins
+- Admin Seasons: season name editable for active and completed seasons
+- Admin Seasons: season champion editable for completed seasons (dropdown of all players)
+- Season Detail: back arrow (←) linking to the Seasons archive page
+- Player Profile: Longest Win Streak, Longest Loss Streak, Total Matches, and Last Match now visible in All Time view; streaks exclude date-unreliable historical seasons
+- Database: `seasons.stats_available` column — marks seasons with randomised historical data as excluded from date-sensitive stats; migration applied to test and live
+
+### Changed
+- Stats: "Best" and "Last 10" columns hidden in All Time view (not meaningful without date ordering)
+- Player Profile: streak card labels renamed "Longest Win Streak" / "Longest Loss Streak" and colour-coded green/red to match other stats pages
+- StatCard component: new `loss` prop for red-coloured stat values
+
+### Fixed
+- Home: H2H matrix left sticky column no longer overflows into adjacent columns on narrow screens
+- Stats: season selector no longer shows the active season as a duplicate past season option
+
+---
+
 ## v1.6.1 — 2026-05-08
 
 ### Added

@@ -259,7 +259,7 @@ function H2HTab({ players, h2hData, nameMap, playerAvatars = {} }) {
       <div className="card overflow-x-auto">
         <table className="table-base min-w-full">
           <colgroup>
-            <col className="w-28" />
+            <col className="w-[7.5rem]" />
             {players.map(p => <col key={p.player_id} className="w-16" />)}
             <col className="w-20" />
           </colgroup>
@@ -282,14 +282,16 @@ function H2HTab({ players, h2hData, nameMap, playerAvatars = {} }) {
               let totalWins = 0, totalLosses = 0
               return (
                 <tr key={row.player_id}>
-                  <td className="pl-5 font-semibold text-slate-200 sticky left-0 bg-pool-card z-10">
-                    <Link
-                      to={`/player/${row.player_id}`}
-                      className="flex items-center gap-2 hover:text-pool-accent transition-colors"
-                    >
-                      <Avatar name={n(row.player_id)} src={playerAvatars[row.player_id]} size="sm" />
-                      {n(row.player_id)}
-                    </Link>
+                  <td className="pl-5 pr-2 font-semibold text-slate-200 sticky left-0 bg-pool-card z-10">
+                    <div className="w-24 overflow-hidden">
+                      <Link
+                        to={`/player/${row.player_id}`}
+                        className="flex items-center gap-2 hover:text-pool-accent transition-colors min-w-0"
+                      >
+                        <Avatar name={n(row.player_id)} src={playerAvatars[row.player_id]} size="sm" />
+                        <span className="truncate">{n(row.player_id)}</span>
+                      </Link>
+                    </div>
                   </td>
                   {players.map(col => {
                     if (col.player_id === row.player_id) {
@@ -570,15 +572,20 @@ export default function Home() {
       // Ascending for graph
       const seasonMatchesAsc = [...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
 
-      const sorted = computeHomeStandings(nonTournamentMatches, playerList)
-      const streaks = computeAllStreaks(nonTournamentMatches, sorted.map(s => s.player_id))
+      const sorted = computeHomeStandings(seasonMatches, playerList)
+      const streaks = computeAllStreaks(seasonMatches, sorted.map(s => s.player_id))
       const avatars = Object.fromEntries(playerList.map(p => [p.id, p.avatar_url]))
       const names = buildDisplayNames(playerList)
 
+      // Filter recent results to active season
+      const seasonRecent = season
+        ? (matches ?? []).filter(m => m.played_at >= season.start_date && m.played_at <= season.end_date + 'T23:59:59')
+        : (matches ?? [])
+
       setActiveSeason(season ?? null)
       setStandings(sorted)
-      setRecentMatches(matches ?? [])
-      setH2hData(computeH2HFromMatches(nonTournamentMatches))
+      setRecentMatches(seasonRecent)
+      setH2hData(computeH2HFromMatches(seasonMatches))
       setYearMatches(seasonMatchesAsc)
       setPlayerStreaks(streaks)
       setPlayerAvatars(avatars)

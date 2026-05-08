@@ -128,25 +128,19 @@ export default function PlayerProfile() {
   const [avatarError, setAvatarError] = useState('')
   const fileInputRef = useRef(null)
 
-  const [streak, setStreak] = useState({ type: null, count: 0 })
-  const [comebacks, setComebacks] = useState(0)
-  const [monthlyForm, setMonthlyForm] = useState([])
-  const [h2h, setH2H] = useState([])
-  const [tournamentH2H, setTournamentH2H] = useState([])
   const [nameMap, setNameMap] = useState({})
-  const [lastTen, setLastTen] = useState([])
-  const [favOpponent, setFavOpponent] = useState(null)
-  const [longestStreaks, setLongestStreaks] = useState({ longestWin: 0, longestLoss: 0 })
   const [activeSeason, setActiveSeason] = useState(null)
+  const [allSeasons, setAllSeasons] = useState([])
   const [seasonStats, setSeasonStats] = useState(null)
   const [trophies, setTrophies] = useState([])
   const [tournamentRecord, setTournamentRecord] = useState(null)
+  const [profileView, setProfileView] = useState('season')
 
   const canUpload = isAdmin || linkedPlayerId === id
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }, { data: tParts }] = await Promise.all([
+      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }, { data: tParts }, { data: allSeasonsData }] = await Promise.all([
         supabase.from('players').select('*').eq('id', id).single(),
 
         supabase
@@ -178,6 +172,8 @@ export default function PlayerProfile() {
           .from('tournament_participants')
           .select('tournament_id, final_position')
           .eq('player_id', id),
+
+        supabase.from('seasons').select('id, start_date, end_date, stats_available'),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
@@ -207,28 +203,12 @@ export default function PlayerProfile() {
 
       setPlayer(p)
       setActiveSeason(season ?? null)
+      setAllSeasons(allSeasonsData ?? [])
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
       setTournamentRecord(tEntered > 0 ? { entered: tEntered, won: tWon, winRate: tWinRate } : null)
       setAllMatches(matches)
-      setStreak(computeStreak(matches, id))
-      setComebacks(computeComebacks(matches, id))
-      setMonthlyForm(buildMonthlyForm(matches, id))
-      const regularH2H = computeH2H(regularMatches, id)
-      setH2H(regularH2H)
-      const tournH2H = computeH2H(tournamentMatches, id)
-      setTournamentH2H(tournH2H)
       setNameMap(buildDisplayNames(allPlayers ?? []))
-      setLongestStreaks(computeLongestStreaks(matches, id))
-
-      const ten = matches.filter(m => m.format === 'best_of_3' && m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
-      setLastTen(ten)
-
-      const fav = regularH2H
-        .filter(o => o.wins + o.losses >= 3)
-        .sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
-      setFavOpponent(fav)
-
       setLoading(false)
     }
     load()
@@ -266,9 +246,47 @@ export default function PlayerProfile() {
     </div>
   )
 
-  const recentMatches = allMatches.slice(0, 10)
-  const hasMonthlyActivity = monthlyForm.some(m => m.wins + m.losses > 0)
   const n = pid => nameMap[pid] ?? ''
+
+  // Scope matches based on toggle
+  const scopedMatches = (profileView === 'season' && activeSeason)
+    ? allMatches.filter(m =>
+        m.played_at >= activeSeason.start_date &&
+        m.played_at <= activeSeason.end_date + 'T23:59:59'
+      )
+    : allMatches
+
+  // All-time regular match summary (for All Time stats grid)
+  const allTimeRegular = allMatches.filter(m => !m.tournament_id && m.winner)
+  const allTimeW = allTimeRegular.filter(m => m.winner.id === id).length
+  const allTimeL = allTimeRegular.length - allTimeW
+  const allTimePlayed = allTimeRegular.length
+
+  const scopedRegular = scopedMatches.filter(m => !m.tournament_id)
+  const scopedTournament = scopedMatches.filter(m => m.tournament_id)
+
+  const streak = computeStreak(scopedMatches, id)
+  const comebacks = computeComebacks(scopedMatches, id)
+  const monthlyForm = buildMonthlyForm(scopedMatches, id)
+  const h2h = computeH2H(scopedRegular, id)
+  const tournamentH2H = computeH2H(scopedTournament, id)
+  const longestStreaks = computeLongestStreaks(scopedMatches, id)
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const excludedRanges = allSeasons
+    .filter(s => !s.stats_available && s.end_date < todayStr)
+    .map(s => ({ from: s.start_date, to: s.end_date + 'T23:59:59' }))
+  const dateReliableAllMatches = excludedRanges.length > 0
+    ? allMatches.filter(m => !excludedRanges.some(r => m.played_at >= r.from && m.played_at <= r.to))
+    : allMatches
+  const effectiveLongestStreaks = profileView === 'alltime'
+    ? computeLongestStreaks(dateReliableAllMatches, id)
+    : longestStreaks
+
+  const lastTen = scopedMatches.filter(m => m.format === 'best_of_3' && m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
+  const favOpponent = h2h.filter(o => o.wins + o.losses >= 3).sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
+  const recentMatches = scopedMatches.slice(0, 10)
+  const hasMonthlyActivity = monthlyForm.some(m => m.wins + m.losses > 0)
 
   return (
     <div className="space-y-6">
@@ -314,8 +332,30 @@ export default function PlayerProfile() {
         </div>
       </div>
 
-      {/* Season stats */}
+      {/* View toggle */}
       {activeSeason && (
+        <div className="flex items-center gap-1 p-1 bg-pool-elevated rounded-lg w-fit">
+          <button
+            onClick={() => setProfileView('season')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              profileView === 'season' ? 'bg-pool-card text-slate-100 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            This Season
+          </button>
+          <button
+            onClick={() => setProfileView('alltime')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              profileView === 'alltime' ? 'bg-pool-card text-slate-100 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            All Time
+          </button>
+        </div>
+      )}
+
+      {/* Season stats */}
+      {activeSeason && profileView === 'season' && (
         <div>
           <p className="section-header">Season — {activeSeason.name}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -325,6 +365,22 @@ export default function PlayerProfile() {
             <StatCard
               label="Win Rate"
               value={seasonStats?.win_pct != null ? `${(seasonStats.win_pct * 100).toFixed(0)}%` : '—'}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* All Time stats grid */}
+      {profileView === 'alltime' && allTimePlayed > 0 && (
+        <div>
+          <p className="section-header">All Time</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Wins" value={allTimeW} accent />
+            <StatCard label="Losses" value={allTimeL} />
+            <StatCard label="Played" value={allTimePlayed} />
+            <StatCard
+              label="Win Rate"
+              value={allTimePlayed > 0 ? `${Math.round(allTimeW / allTimePlayed * 100)}%` : '—'}
             />
           </div>
         </div>
@@ -364,11 +420,11 @@ export default function PlayerProfile() {
       )}
 
       {/* Streak & comebacks */}
-      {allMatches.length > 0 && (
+      {scopedMatches.length > 0 && (
         <div>
-          <p className="section-header">All Time</p>
+          <p className="section-header">{profileView === 'season' && activeSeason ? `Season — ${activeSeason.name}` : 'Career'}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {streak.count > 0 && (
+            {profileView === 'season' && streak.count > 0 && (
               <div className="card p-4">
                 <p className="section-header">Current Streak</p>
                 <p className={`text-3xl font-bold tracking-tight ${streak.type === 'W' ? 'text-pool-accent' : 'text-pool-loss'}`}>
@@ -381,36 +437,38 @@ export default function PlayerProfile() {
               value={comebacks}
               sub="Won after losing game 1"
             />
-            {longestStreaks.longestWin > 0 && (
+            {effectiveLongestStreaks.longestWin > 0 && (
               <StatCard
-                label="Best Win Streak"
-                value={longestStreaks.longestWin}
-                sub="All time"
+                label="Longest Win Streak"
+                value={effectiveLongestStreaks.longestWin}
+                accent
+                sub={profileView === 'season' ? 'This season' : undefined}
               />
             )}
-            {longestStreaks.longestLoss > 0 && (
+            {effectiveLongestStreaks.longestLoss > 0 && (
               <StatCard
-                label="Worst Loss Streak"
-                value={longestStreaks.longestLoss}
-                sub="All time"
+                label="Longest Loss Streak"
+                value={effectiveLongestStreaks.longestLoss}
+                loss
+                sub={profileView === 'season' ? 'This season' : undefined}
               />
             )}
             <StatCard
               label="Total Matches"
-              value={allMatches.filter(m => m.winner).length}
+              value={scopedMatches.filter(m => m.winner).length}
             />
-            {allMatches[0]?.played_at && (
+            {scopedMatches[0]?.played_at && (
               <StatCard
                 label="Last Match"
-                value={timeAgo(allMatches[0].played_at)}
+                value={timeAgo(scopedMatches[0].played_at)}
               />
             )}
           </div>
         </div>
       )}
 
-      {/* Last 10 Bo3 results */}
-      {lastTen.length > 0 && (
+      {/* Last 10 Bo3 results — season view only */}
+      {profileView === 'season' && lastTen.length > 0 && (
         <div>
           <p className="section-header">Last {lastTen.length} Bo3 Results</p>
           <div className="card p-4">
@@ -464,8 +522,8 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Monthly form chart */}
-      {hasMonthlyActivity && (
+      {/* Monthly form chart — season view only */}
+      {profileView === 'season' && hasMonthlyActivity && (
         <div>
           <p className="section-header">Monthly Form</p>
           <div className="card p-4 pt-6">
@@ -582,8 +640,8 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Recent matches */}
-      <div>
+      {/* Recent matches — season view only */}
+      {profileView === 'season' && <div>
         <p className="section-header">Recent Matches</p>
         {recentMatches.length === 0 ? (
           <div className="card p-8 text-center text-slate-600">No matches yet</div>
@@ -629,7 +687,7 @@ export default function PlayerProfile() {
             })}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

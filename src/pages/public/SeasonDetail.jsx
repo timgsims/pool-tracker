@@ -105,7 +105,9 @@ export default function SeasonDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
+      <div className="flex items-start gap-4">
+        <Link to="/seasons" className="text-slate-400 hover:text-slate-100 transition-colors text-2xl font-bold leading-none mt-1">←</Link>
+        <div className="flex-1 min-w-0">
         <p className="section-header">
           <Link to="/seasons" className="hover:text-slate-300 transition-colors">Archive</Link>
           {' · '}
@@ -128,6 +130,7 @@ export default function SeasonDetail() {
           {matches.length} matches
           {tournaments.length > 0 && ` · ${tournaments.length} tournaments`}
         </p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -202,8 +205,9 @@ export default function SeasonDetail() {
             {matches.map(m => {
               const { left, right, leftScore, rightScore, leftWon, rightWon } = orderedMatch(m)
               const isBo3 = m.format === 'best_of_3'
-              const leftGames = isBo3 ? gameSeq(m.games, left?.id) : null
-              const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
+              const hasGames = (m.games?.length ?? 0) > 0
+              const leftGames = isBo3 && hasGames ? gameSeq(m.games, left?.id) : null
+              const rightGames = isBo3 && hasGames ? gameSeq(m.games, right?.id) : null
               return (
                 <div key={m.id} className="card px-5 py-4">
                   {m.winner && (
@@ -214,7 +218,7 @@ export default function SeasonDetail() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                       {leftGames && <span className="text-slate-500 text-xs shrink-0">({leftGames})</span>}
-                      {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
+                      {isBo3 && hasGames && <span className={`font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                       <span className={`font-bold text-base truncate ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(left?.id)}</span>
                       <Avatar name={left?.name} src={left?.avatar_url} size="sm" />
                     </div>
@@ -222,7 +226,7 @@ export default function SeasonDetail() {
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                       <Avatar name={right?.name} src={right?.avatar_url} size="sm" />
                       <span className={`font-bold text-base truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{n(right?.id)}</span>
-                      {isBo3 && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                      {isBo3 && hasGames && <span className={`font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                       {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                     </div>
                   </div>
@@ -233,6 +237,7 @@ export default function SeasonDetail() {
                       ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
                       : (isBo3 ? 'Best of 3' : 'Single game')
                     }</span>
+                    {isBo3 && !hasGames && <><span>·</span><span className="italic">no game data</span></>}
                   </div>
                 </div>
               )

@@ -89,19 +89,16 @@ function LastTenBadges({ results }) {
 export default function TournamentStats() {
   const [loading, setLoading] = useState(true)
   const [players, setPlayers] = useState([])
-  const [tournamentMatches, setTournamentMatches] = useState([])
+  const [rawMatches, setRawMatches] = useState([])
+  const [rawTournaments, setRawTournaments] = useState([])
   const [nameMap, setNameMap] = useState({})
-  const [allStats, setAllStats] = useState({})
-  const [tWins, setTWins] = useState({})
-  const [tEntered, setTEntered] = useState({})
+  const [allSeasons, setAllSeasons] = useState([])
+  const [activeSeason, setActiveSeason] = useState(null)
+  const [selectedView, setSelectedView] = useState('current')
 
   useEffect(() => {
     async function load() {
-      const [
-        { data: p },
-        { data: m },
-        { data: parts },
-      ] = await Promise.all([
+      const [{ data: p }, { data: m }, { data: t }, { data: seasons }] = await Promise.all([
         supabase.from('players').select('id, name, avatar_url').eq('active', true),
         supabase
           .from('matches')
@@ -109,30 +106,20 @@ export default function TournamentStats() {
           .not('tournament_id', 'is', null)
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: true }),
-        supabase.from('tournament_participants').select('tournament_id, player_id, final_position'),
+        supabase
+          .from('tournaments')
+          .select('id, date, tournament_participants(player_id, final_position)')
+          .order('date', { ascending: true }),
+        supabase.from('seasons').select('id, name, start_date, end_date, is_active, stats_available').order('start_date', { ascending: false }),
       ])
 
-      const playerList = p ?? []
-      const matchList = m ?? []
-      const partList = parts ?? []
-      const playerIds = playerList.map(pl => pl.id)
-
-      const stats = {}
-      for (const pid of playerIds) stats[pid] = computePlayerStats(matchList, pid)
-
-      const wins = {}
-      const entered = {}
-      for (const pa of partList) {
-        entered[pa.player_id] = (entered[pa.player_id] ?? 0) + 1
-        if (pa.final_position === 1) wins[pa.player_id] = (wins[pa.player_id] ?? 0) + 1
-      }
-
-      setPlayers(playerList)
-      setTournamentMatches(matchList)
-      setNameMap(buildDisplayNames(playerList))
-      setAllStats(stats)
-      setTWins(wins)
-      setTEntered(entered)
+      const seasonList = seasons ?? []
+      setPlayers(p ?? [])
+      setRawMatches(m ?? [])
+      setRawTournaments(t ?? [])
+      setNameMap(buildDisplayNames(p ?? []))
+      setAllSeasons(seasonList)
+      setActiveSeason(seasonList.find(s => s.is_active) ?? null)
       setLoading(false)
     }
     load()
@@ -141,13 +128,42 @@ export default function TournamentStats() {
   if (loading) return <LoadingSpinner />
 
   const n = id => nameMap[id] ?? ''
-  const avatarMap = Object.fromEntries(players.map(p => [p.id, p.avatar_url]))
-
   const playerIds = players.map(p => p.id)
-  const matchList = tournamentMatches
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  // ─── Filter matches and tournaments based on selected view ───────────────────
+
+  const seasonRange = (() => {
+    if (selectedView === 'current') return activeSeason ? { from: activeSeason.start_date, to: activeSeason.end_date } : null
+    if (selectedView === 'all_time') return null
+    const s = allSeasons.find(s => s.id === selectedView)
+    return s ? { from: s.start_date, to: s.end_date } : null
+  })()
+
+  const filteredMatches = seasonRange
+    ? rawMatches.filter(m => m.played_at >= seasonRange.from && m.played_at <= seasonRange.to + 'T23:59:59')
+    : rawMatches
+
+  const filteredTournaments = seasonRange
+    ? rawTournaments.filter(t => t.date >= seasonRange.from && t.date <= seasonRange.to)
+    : rawTournaments
+
+  // ─── Compute stats from filtered data ────────────────────────────────────────
+
+  const allStats = {}
+  for (const pid of playerIds) allStats[pid] = computePlayerStats(filteredMatches, pid)
+
+  const tWins = {}
+  const tEntered = {}
+  for (const t of filteredTournaments) {
+    for (const p of t.tournament_participants ?? []) {
+      tEntered[p.player_id] = (tEntered[p.player_id] ?? 0) + 1
+      if (p.final_position === 1) tWins[p.player_id] = (tWins[p.player_id] ?? 0) + 1
+    }
+  }
 
   const withStats = playerIds.filter(id => (allStats[id]?.total ?? 0) > 0)
-  const hasData = withStats.length > 0
+  const hasData = withStats.length > 0 || Object.keys(tEntered).length > 0
 
   const mostMatchesId = [...withStats].sort((a, b) => (allStats[b]?.total ?? 0) - (allStats[a]?.total ?? 0))[0] ?? null
   const bestWinRateId = withStats.filter(id => (allStats[id]?.total ?? 0) >= 3).sort((a, b) => (allStats[b]?.winRate ?? 0) - (allStats[a]?.winRate ?? 0))[0] ?? null
@@ -164,8 +180,27 @@ export default function TournamentStats() {
 
   const playerBreakdown = [...players]
     .map(p => ({ ...p, stats: allStats[p.id], entered: tEntered[p.id] ?? 0, won: tWins[p.id] ?? 0 }))
-    .filter(p => p.stats?.total > 0)
-    .sort((a, b) => (b.stats.winRate - a.stats.winRate) || (b.stats.wins - a.stats.wins))
+    .filter(p => p.stats?.total > 0 || p.entered > 0)
+    .sort((a, b) => (b.stats?.winRate ?? 0) - (a.stats?.winRate ?? 0) || (b.stats?.wins ?? 0) - (a.stats?.wins ?? 0))
+
+  // ─── Season selector options ─────────────────────────────────────────────────
+
+  const viewOptions = [
+    ...(activeSeason ? [{ value: 'current', label: 'Current Season' }] : []),
+    ...allSeasons.filter(s =>
+      s.id !== activeSeason?.id &&
+      !s.is_active &&
+      s.end_date < todayStr &&
+      s.stats_available
+    ).map(s => ({ value: s.id, label: s.name })),
+    { value: 'all_time', label: 'All Time' },
+  ]
+
+  const selectedLabel = selectedView === 'current'
+    ? activeSeason?.name ?? 'Current Season'
+    : selectedView === 'all_time'
+    ? 'All Time'
+    : allSeasons.find(s => s.id === selectedView)?.name ?? ''
 
   return (
     <div className="space-y-8">
@@ -174,13 +209,33 @@ export default function TournamentStats() {
         <h1 className="page-title">Tournament Stats</h1>
       </div>
 
+      {/* Season selector */}
+      {viewOptions.length > 1 && (
+        <div className="flex items-center gap-1 p-1 bg-pool-elevated rounded-lg w-fit">
+          {viewOptions.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSelectedView(opt.value)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                selectedView === opt.value
+                  ? 'bg-pool-card text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!hasData ? (
-        <div className="card p-8 text-center text-slate-600">No tournament match data yet.</div>
+        <div className="card p-8 text-center text-slate-600">No tournament data for {selectedLabel}.</div>
       ) : (
         <>
           {/* Record highlights */}
           <div>
             <p className="section-header">Records</p>
+            <p className="text-slate-600 text-xs -mt-2 mb-4">Tournament matches · {selectedLabel}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {mostTourneysWonId && (
                 <RecordCard
@@ -246,7 +301,7 @@ export default function TournamentStats() {
           {/* Player breakdown */}
           <div>
             <p className="section-header">Player Breakdown</p>
-            <p className="text-slate-600 text-xs -mt-2 mb-3">Tournament matches only — streaks and recent form</p>
+            <p className="text-slate-600 text-xs -mt-2 mb-3">Tournament matches only · {selectedLabel}</p>
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
@@ -256,8 +311,8 @@ export default function TournamentStats() {
                   <col className="w-12" />
                   <col className="w-12" />
                   <col className="w-16" />
-                  <col className="w-14" />
-                  <col className="w-56" />
+                  {selectedView !== 'all_time' && <col className="w-14" />}
+                  {selectedView !== 'all_time' && <col className="w-56" />}
                 </colgroup>
                 <thead>
                   <tr>
@@ -267,8 +322,8 @@ export default function TournamentStats() {
                     <th className="text-center">W</th>
                     <th className="text-center">L</th>
                     <th className="text-center">Win%</th>
-                    <th className="text-center">Best</th>
-                    <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>
+                    {selectedView !== 'all_time' && <th className="text-center">Best</th>}
+                    {selectedView !== 'all_time' && <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -285,25 +340,29 @@ export default function TournamentStats() {
                             {n(p.id)}
                           </Link>
                         </td>
-                        <td className="text-center text-slate-500 tabular-nums text-sm">{p.entered}</td>
+                        <td className="text-center text-slate-500 tabular-nums text-sm">{p.entered || <span className="text-slate-700">—</span>}</td>
                         <td className="text-center tabular-nums text-sm">
                           {p.won > 0
                             ? <span className="text-amber-400">🏆{p.won > 1 ? ` ×${p.won}` : ''}</span>
                             : <span className="text-slate-700">—</span>}
                         </td>
-                        <td className="text-center win-text tabular-nums">{s.wins}</td>
-                        <td className="text-center loss-text tabular-nums">{s.losses}</td>
+                        <td className="text-center win-text tabular-nums">{s?.wins ?? 0}</td>
+                        <td className="text-center loss-text tabular-nums">{s?.losses ?? 0}</td>
                         <td className="text-center text-slate-300 font-mono tabular-nums text-sm">
-                          {(s.winRate * 100).toFixed(0)}%
+                          {s ? `${(s.winRate * 100).toFixed(0)}%` : '—'}
                         </td>
-                        <td className={`text-center font-mono text-sm tabular-nums ${s.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
-                          {s.maxWin > 0 ? `W${s.maxWin}` : '—'}
-                        </td>
-                        <td className="text-right pr-5">
-                          <div className="flex gap-0.5 justify-end">
-                            <LastTenBadges results={s.lastTen} />
-                          </div>
-                        </td>
+                        {selectedView !== 'all_time' && (
+                          <td className={`text-center font-mono text-sm tabular-nums ${s?.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
+                            {s?.maxWin > 0 ? `W${s.maxWin}` : '—'}
+                          </td>
+                        )}
+                        {selectedView !== 'all_time' && (
+                          <td className="text-right pr-5">
+                            <div className="flex gap-0.5 justify-end">
+                              <LastTenBadges results={s?.lastTen} />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
