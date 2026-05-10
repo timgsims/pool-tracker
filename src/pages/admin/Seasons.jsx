@@ -1,25 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { computeEloRatings, buildEloStandings } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
-
-function computeSeasonStandings(matches, players) {
-  const stats = {}
-  for (const p of players) stats[p.id] = { wins: 0, losses: 0 }
-  for (const m of matches) {
-    if (!m.winner_id) continue
-    if (stats[m.winner_id] !== undefined) stats[m.winner_id].wins++
-    const loserId = m.winner_id === m.player1_id ? m.player2_id : m.player1_id
-    if (stats[loserId] !== undefined) stats[loserId].losses++
-  }
-  return players
-    .map(p => ({ ...p, ...stats[p.id] }))
-    .filter(p => p.wins + p.losses > 0)
-    .sort((a, b) => {
-      const ra = a.wins / (a.wins + a.losses)
-      const rb = b.wins / (b.wins + b.losses)
-      return rb - ra || b.wins - a.wins
-    })
-}
 
 function CompleteModal({ season, players, onConfirm, onClose }) {
   const [standings, setStandings] = useState([])
@@ -30,14 +12,18 @@ function CompleteModal({ season, players, onConfirm, onClose }) {
   useEffect(() => {
     supabase
       .from('matches')
-      .select('player1_id, player2_id, winner_id')
+      .select('player1_id, player2_id, winner_id, played_at')
       .gte('played_at', season.start_date)
       .lte('played_at', season.end_date + 'T23:59:59')
+      .is('tournament_id', null)
       .not('winner_id', 'is', null)
+      .order('played_at', { ascending: true })
       .then(({ data }) => {
-        const s = computeSeasonStandings(data ?? [], players)
+        // Use season.end_date as decay reference so archived ratings are deterministic
+        const eloRatings = computeEloRatings(data ?? [], season.end_date)
+        const s = buildEloStandings(eloRatings, players)
         setStandings(s)
-        if (s.length > 0) setChampion(s[0].id)
+        if (s.length > 0) setChampion(s[0].player_id)
         setLoading(false)
       })
   }, [season.id])
@@ -45,7 +31,7 @@ function CompleteModal({ season, players, onConfirm, onClose }) {
   const handleConfirm = async () => {
     if (!champion) return
     setSaving(true)
-    await onConfirm(champion)
+    await onConfirm(champion, standings)
   }
 
   return (
@@ -66,37 +52,34 @@ function CompleteModal({ season, players, onConfirm, onClose }) {
         ) : (
           <div className="space-y-2">
             <p className="label">Select season champion</p>
-            {standings.map((p, i) => {
-              const total = p.wins + p.losses
-              return (
-                <label
-                  key={p.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    champion === p.id
-                      ? 'border-amber-600/60 bg-amber-900/20'
-                      : 'border-pool-border hover:border-slate-500'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="champion"
-                    value={p.id}
-                    checked={champion === p.id}
-                    onChange={() => setChampion(p.id)}
-                    className="accent-amber-500"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-200 text-sm">{p.name}</p>
-                    <p className="text-slate-600 text-xs">
-                      {p.wins}W – {p.losses}L · {Math.round((p.wins / total) * 100)}% win rate
-                    </p>
-                  </div>
-                  {i === 0 && (
-                    <span className="text-amber-400 text-xs font-semibold shrink-0">Top seed</span>
-                  )}
-                </label>
-              )
-            })}
+            {standings.map((p, i) => (
+              <label
+                key={p.player_id}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  champion === p.player_id
+                    ? 'border-amber-600/60 bg-amber-900/20'
+                    : 'border-pool-border hover:border-slate-500'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="champion"
+                  value={p.player_id}
+                  checked={champion === p.player_id}
+                  onChange={() => setChampion(p.player_id)}
+                  className="accent-amber-500"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-200 text-sm">{p.player_name}</p>
+                  <p className="text-slate-600 text-xs">
+                    {p.wins}W – {p.losses}L · {p.rating} pts{p.isProvisional ? ' · provisional' : ''}
+                  </p>
+                </div>
+                {!p.isProvisional && i === 0 && (
+                  <span className="text-amber-400 text-xs font-semibold shrink-0">Top seed</span>
+                )}
+              </label>
+            ))}
           </div>
         )}
 
@@ -206,13 +189,29 @@ export default function AdminSeasons() {
     load()
   }
 
-  const completeSeason = async (championId) => {
+  const completeSeason = async (championId, standings) => {
     setError('')
     const { error } = await supabase
       .from('seasons')
       .update({ completed: true, is_active: false, champion_player_id: championId })
       .eq('id', completing.id)
     if (error) { setError(error.message); return }
+
+    if (standings?.length) {
+      await supabase.from('season_rankings').delete().eq('season_id', completing.id)
+      const rows = standings.map((r, i) => ({
+        season_id: completing.id,
+        player_id: r.player_id,
+        final_rank: i + 1,
+        final_rating: r.rating,
+        wins: r.wins,
+        losses: r.losses,
+        matches_played: r.matchesPlayed,
+      }))
+      const { error: re } = await supabase.from('season_rankings').insert(rows)
+      if (re) { setError(re.message); return }
+    }
+
     setCompleting(null)
     load()
   }

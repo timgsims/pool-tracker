@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort } from '../../lib/dateUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
+import { computeEloRatings, buildEloStandings, PROVISIONAL_THRESHOLD } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import Avatar from '../../components/ui/Avatar'
@@ -56,25 +57,6 @@ function computeAllStreaks(allTimeMatches, playerIds) {
   return streaks
 }
 
-function computeHomeStandings(matches, players) {
-  const stats = {}
-  for (const p of players) {
-    stats[p.id] = { player_id: p.id, player_name: p.name, wins: 0, losses: 0, matches_played: 0 }
-  }
-  for (const m of matches) {
-    if (!m.winner_id) continue
-    if (stats[m.winner_id]) { stats[m.winner_id].wins++; stats[m.winner_id].matches_played++ }
-    const loserId = m.winner_id === m.player1_id ? m.player2_id : m.player1_id
-    if (stats[loserId]) { stats[loserId].losses++; stats[loserId].matches_played++ }
-  }
-  return Object.values(stats)
-    .filter(p => p.matches_played > 0)
-    .map(p => ({ ...p, win_pct: p.wins / p.matches_played }))
-    .sort((a, b) => {
-      const diff = (b.win_pct ?? 0) - (a.win_pct ?? 0)
-      return diff !== 0 ? diff : b.wins - a.wins
-    })
-}
 
 function computeH2HFromMatches(matches) {
   const pairMap = {}
@@ -152,19 +134,56 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
     )
   }
 
+  const established = standings.filter(s => !s.isProvisional)
+  const provisional = standings.filter(s => s.isProvisional)
+
+  const PlayerRow = ({ row, rank }) => {
+    const stk = playerStreaks[row.player_id]
+    return (
+      <tr key={row.player_id} className={row.isProvisional ? 'opacity-50' : ''}>
+        <td className="pl-5 text-slate-600 font-mono text-xs">
+          {!row.isProvisional && rank === 1 ? <span>👑</span> : row.isProvisional ? '—' : rank}
+        </td>
+        <td>
+          <Link
+            to={`/player/${row.player_id}`}
+            className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+          >
+            <Avatar name={row.player_name} src={playerAvatars[row.player_id]} size="sm" />
+            {nameMap[row.player_id] ?? row.player_name}
+          </Link>
+        </td>
+        <td className="text-center win-text tabular-nums">{row.wins}</td>
+        <td className="text-center loss-text tabular-nums">{row.losses}</td>
+        <td className="text-center text-slate-500 tabular-nums hidden sm:table-cell">{row.matchesPlayed}</td>
+        <td className="text-center font-mono text-sm tabular-nums">
+          {stk?.count > 0 ? (
+            <span className={stk.type === 'W' ? 'win-text' : 'loss-text'}>{stk.type}{stk.count}</span>
+          ) : <span className="text-slate-700">—</span>}
+        </td>
+        <td className="text-right pr-5 font-mono text-sm tabular-nums">
+          {row.isProvisional
+            ? <span className="text-slate-600">~{row.rating}</span>
+            : <span className="text-slate-100">{row.rating}</span>
+          }
+        </td>
+      </tr>
+    )
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <p className="section-header">Player Ranking</p>
       <div className="card overflow-x-auto">
         <table className="table-base">
           <colgroup>
-            <col className="w-10" />
+            <col className="w-8" />
             <col />
             <col className="w-12" />
             <col className="w-12" />
-            <col className="w-16 hidden sm:table-column" />
+            <col className="w-14 hidden sm:table-column" />
+            <col className="w-12" />
             <col className="w-16" />
-            <col className="w-20" />
           </colgroup>
           <thead>
             <tr>
@@ -172,53 +191,29 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
               <th className="text-left">Player</th>
               <th className="text-center">W</th>
               <th className="text-center">L</th>
-              <th className="text-center hidden sm:table-cell">Played</th>
+              <th className="text-center hidden sm:table-cell">GP</th>
               <th className="text-center">Strk</th>
-              <th className="text-right pr-5">Win %</th>
+              <th className="text-right pr-5">Rating</th>
             </tr>
           </thead>
           <tbody>
-            {standings.map((row, i) => {
-              const stk = playerStreaks[row.player_id]
-              return (
-                <tr key={row.player_id}>
-                  <td className="pl-5 text-slate-600 font-mono text-xs">
-                    {i === 0
-                      ? <span>👑</span>
-                      : i + 1}
-                  </td>
-                  <td>
-                    <Link
-                      to={`/player/${row.player_id}`}
-                      className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                    >
-                      <Avatar
-                        name={row.player_name}
-                        src={playerAvatars[row.player_id]}
-                        size="sm"
-                      />
-                      {nameMap[row.player_id] ?? row.player_name}
-                    </Link>
-                  </td>
-                  <td className="text-center win-text tabular-nums">{row.wins}</td>
-                  <td className="text-center loss-text tabular-nums">{row.losses}</td>
-                  <td className="text-center text-slate-500 tabular-nums hidden sm:table-cell">{row.matches_played}</td>
-                  <td className="text-center font-mono text-sm tabular-nums">
-                    {stk?.count > 0 ? (
-                      <span className={stk.type === 'W' ? 'win-text' : 'loss-text'}>
-                        {stk.type}{stk.count}
-                      </span>
-                    ) : <span className="text-slate-700">—</span>}
-                  </td>
-                  <td className="text-right pr-5 text-slate-300 font-mono text-sm tabular-nums">
-                    {row.win_pct != null ? `${(row.win_pct * 100).toFixed(0)}%` : '—'}
+            {established.map((row, i) => <PlayerRow key={row.player_id} row={row} rank={i + 1} />)}
+            {provisional.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={7} className="pl-5 pt-3 pb-1.5 text-xs text-slate-600 border-t border-pool-border/40">
+                    Provisional — fewer than {PROVISIONAL_THRESHOLD} matches this season
                   </td>
                 </tr>
-              )
-            })}
+                {provisional.map(row => <PlayerRow key={row.player_id} row={row} rank={null} />)}
+              </>
+            )}
           </tbody>
         </table>
       </div>
+      <p className="text-slate-700 text-xs">
+        Ratings use Elo weighted by opponent strength, recency, and same-day match count
+      </p>
     </div>
   )
 }
@@ -569,10 +564,11 @@ export default function Home() {
         seasonMatches = nonTournamentMatches
       }
 
-      // Ascending for graph
+      // Ascending for Elo computation and graph
       const seasonMatchesAsc = [...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
 
-      const sorted = computeHomeStandings(seasonMatches, playerList)
+      const eloRatings = computeEloRatings(seasonMatchesAsc)
+      const sorted = buildEloStandings(eloRatings, playerList)
       const streaks = computeAllStreaks(seasonMatches, sorted.map(s => s.player_id))
       const avatars = Object.fromEntries(playerList.map(p => [p.id, p.avatar_url]))
       const names = buildDisplayNames(playerList)

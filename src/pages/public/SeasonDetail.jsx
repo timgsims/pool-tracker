@@ -30,6 +30,7 @@ export default function SeasonDetail() {
   const [matches, setMatches] = useState([])
   const [nameMap, setNameMap] = useState({})
   const [tournaments, setTournaments] = useState([])
+  const [seasonRankings, setSeasonRankings] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Leaderboard')
 
@@ -65,12 +66,18 @@ export default function SeasonDetail() {
             .gte('date', s.start_date)
             .lte('date', s.end_date)
             .order('date', { ascending: false }),
+          supabase
+            .from('season_rankings')
+            .select('player_id, final_rank, final_rating, wins, losses, matches_played')
+            .eq('season_id', s.id)
+            .order('final_rank'),
         ])
       })
-      .then(([{ data: m }, { data: p }, { data: t }]) => {
+      .then(([{ data: m }, { data: p }, { data: t }, { data: sr }]) => {
         setMatches(m ?? [])
         setNameMap(buildDisplayNames(p ?? []))
         setTournaments(t ?? [])
+        setSeasonRankings(sr ?? [])
         setLoading(false)
       })
   }, [id])
@@ -151,22 +158,58 @@ export default function SeasonDetail() {
       </div>
 
       {/* Leaderboard */}
-      {tab === 'Leaderboard' && (
-        leaderboard.length === 0 ? (
-          <div className="card">
-            <EmptyState title="No completed matches in this season" />
-          </div>
-        ) : (
+      {tab === 'Leaderboard' && (() => {
+        const colgroup = (
+          <colgroup>
+            <col className="w-8" />
+            <col />
+            <col className="w-12" />
+            <col className="w-12" />
+            <col className="w-12" />
+            <col className="w-16" />
+          </colgroup>
+        )
+
+        if (seasonRankings.length > 0) {
+          return (
+            <div className="card overflow-x-auto">
+              <table className="table-base">
+                {colgroup}
+                <thead>
+                  <tr>
+                    <th className="pl-5 text-left">#</th>
+                    <th className="text-left">Player</th>
+                    <th className="text-center">W</th>
+                    <th className="text-center">L</th>
+                    <th className="text-center">GP</th>
+                    <th className="text-right pr-5">Rating</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seasonRankings.map((r, i) => (
+                    <tr key={r.player_id}>
+                      <td className="pl-5 text-slate-600 font-mono text-xs">{i + 1}</td>
+                      <td className={i === 0 ? 'font-semibold text-slate-100' : 'text-slate-300'}>{n(r.player_id)}</td>
+                      <td className="text-center win-text tabular-nums">{r.wins}</td>
+                      <td className="text-center loss-text tabular-nums">{r.losses}</td>
+                      <td className="text-center text-slate-500 tabular-nums">{r.matches_played}</td>
+                      <td className="text-right pr-5 text-slate-100 font-mono text-sm tabular-nums">{r.final_rating}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+
+        if (leaderboard.length === 0) {
+          return <div className="card"><EmptyState title="No completed matches in this season" /></div>
+        }
+
+        return (
           <div className="card overflow-x-auto">
             <table className="table-base">
-              <colgroup>
-                <col className="w-8" />
-                <col />
-                <col className="w-12" />
-                <col className="w-12" />
-                <col className="w-12" />
-                <col className="w-16" />
-              </colgroup>
+              {colgroup}
               <thead>
                 <tr>
                   <th className="pl-5 text-left">#</th>
@@ -192,7 +235,7 @@ export default function SeasonDetail() {
             </table>
           </div>
         )
-      )}
+      })()}
 
       {/* Matches */}
       {tab === 'Matches' && (

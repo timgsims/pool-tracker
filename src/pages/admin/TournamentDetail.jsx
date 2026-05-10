@@ -405,9 +405,11 @@ export default function AdminTournamentDetail() {
     // Build round 1 matchups
     let pairs
     if (seeding === 'ranked_similar') {
-      // 1v2, 3v4, 5v6...
+      // Top seeds get BYEs; remaining real players pair adjacently (1v2, 3v4...)
       pairs = []
-      for (let i = 0; i < bracketSize; i += 2) pairs.push([i + 1, i + 2])
+      const numByes = bracketSize - n
+      for (let i = 1; i <= numByes; i++) pairs.push([i, n + i])
+      for (let i = numByes + 1; i <= n; i += 2) pairs.push([i, i + 1])
     } else {
       // Playoff: 1vN, 4v(N-3), 2v(N-1), 3v(N-2)...
       pairs = playoffMatchups(bracketSize)

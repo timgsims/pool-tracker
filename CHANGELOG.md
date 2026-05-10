@@ -4,6 +4,25 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.8.0 — 2026-05-11
+
+### Added
+- Home leaderboard: Elo rating system replaces win percentage — season-scoped, resets to 1000 each season, with time-decay K-factor (recency weighted, half-life 45 days) and same-day farming protection (repeated matches against the same opponent on the same day yield diminishing K)
+- Home leaderboard: provisional ratings shown below a separator for players with fewer than 5 matches (displayed as `~rating` in muted style)
+- Admin Seasons: Complete Season archives final Elo ratings for all players into `season_rankings` table
+- Season Detail leaderboard: shows archived Elo ratings for completed seasons; falls back to win% for pre-Elo historical seasons
+- Database: `season_rankings` table — stores final rank, Elo rating, W/L/GP per player per completed season; RLS enabled
+
+### Changed
+- Home leaderboard: column widths tightened — # and STRK narrower, more room for player names
+- Tournament bracket: BYE slots in `ranked_similar` seeding now go to the top seeds, not the bottom (consistent with playoff seeding)
+
+### Security
+- Database: RLS enabled on `schema_migrations` table (previously no row-level security)
+- Auth: new user signups are now assigned `viewer` role by default; admin must manually promote to `player`
+
+---
+
 ## v1.7.0 — 2026-05-09
 
 ### Added
