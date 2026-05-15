@@ -140,7 +140,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
   const PlayerRow = ({ row, rank }) => {
     const stk = playerStreaks[row.player_id]
     return (
-      <tr key={row.player_id} className={row.isProvisional ? 'opacity-50' : ''}>
+      <tr key={row.player_id}>
         <td className="pl-5 text-slate-600 font-mono text-xs">
           {!row.isProvisional && rank === 1 ? <span>👑</span> : row.isProvisional ? '—' : rank}
         </td>

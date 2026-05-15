@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/tournament-stats', label: 'Tournament Stats' },
   { to: '/seasons', label: 'Archive', end: true },
   { to: '/rules', label: 'Rules' },
+  { to: '/changelog', label: 'Changelog' },
 ]
 
 export default function Navbar() {

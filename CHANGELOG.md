@@ -4,6 +4,16 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.9.1 — 2026-05-16
+
+### Added
+- Public Changelog page accessible from the main menu
+
+### Fixed
+- Leaderboard: provisional players no longer have their full row greyed out — only the Elo rating value is muted, consistent with other tables
+
+---
+
 ## v1.9.0 — 2026-05-16
 
 ### Added
