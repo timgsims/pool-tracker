@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { formatDateLong, formatDateShort, timeAgo } from '../../lib/dateUtils'
 import { orderedMatch } from '../../lib/matchUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
+import { computeEloRatings } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
@@ -134,13 +135,15 @@ export default function PlayerProfile() {
   const [seasonStats, setSeasonStats] = useState(null)
   const [trophies, setTrophies] = useState([])
   const [tournamentRecord, setTournamentRecord] = useState(null)
+  const [eloRatings, setEloRatings] = useState({})
+  const [allTimeEloRatings, setAllTimeEloRatings] = useState({})
   const [profileView, setProfileView] = useState('season')
 
   const canUpload = isAdmin || linkedPlayerId === id
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }, { data: tParts }, { data: allSeasonsData }] = await Promise.all([
+      const [{ data: p }, { data: m }, { data: allPlayers }, { data: season }, { data: wonSeasons }, { data: tParts }, { data: allSeasonsData }, { data: allRegularMatches }] = await Promise.all([
         supabase.from('players').select('*').eq('id', id).single(),
 
         supabase
@@ -174,6 +177,9 @@ export default function PlayerProfile() {
           .eq('player_id', id),
 
         supabase.from('seasons').select('id, start_date, end_date, stats_available'),
+
+        supabase.from('matches').select('id, played_at, player1_id, player2_id, winner_id')
+          .is('tournament_id', null).not('winner_id', 'is', null).order('played_at', { ascending: true }),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
@@ -201,12 +207,18 @@ export default function PlayerProfile() {
       const tWon = (tParts ?? []).filter(tp => tp.final_position === 1).length
       const tWinRate = tEntered > 0 ? tWon / tEntered : null
 
+      const seasonMatchesForElo = season
+        ? (allRegularMatches ?? []).filter(m => m.played_at >= season.start_date && m.played_at <= season.end_date + 'T23:59:59')
+        : []
+
       setPlayer(p)
       setActiveSeason(season ?? null)
       setAllSeasons(allSeasonsData ?? [])
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
       setTournamentRecord(tEntered > 0 ? { entered: tEntered, won: tWon, winRate: tWinRate } : null)
+      setEloRatings(computeEloRatings(seasonMatchesForElo))
+      setAllTimeEloRatings(computeEloRatings(allRegularMatches ?? []))
       setAllMatches(matches)
       setNameMap(buildDisplayNames(allPlayers ?? []))
       setLoading(false)
@@ -354,11 +366,11 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Season stats */}
+      {/* Stats section — season view */}
       {activeSeason && profileView === 'season' && (
         <div>
           <p className="section-header">Season — {activeSeason.name}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <StatCard label="Wins" value={seasonStats?.wins ?? 0} accent />
             <StatCard label="Losses" value={seasonStats?.losses ?? 0} />
             <StatCard label="Played" value={seasonStats?.matches_played ?? 0} />
@@ -366,15 +378,41 @@ export default function PlayerProfile() {
               label="Win Rate"
               value={seasonStats?.win_pct != null ? `${(seasonStats.win_pct * 100).toFixed(0)}%` : '—'}
             />
+            {eloRatings[id] && (
+              <StatCard
+                label="Elo Rating"
+                value={eloRatings[id].isProvisional ? `~${eloRatings[id].rating}` : eloRatings[id].rating}
+                sub={eloRatings[id].isProvisional ? 'provisional' : undefined}
+              />
+            )}
+            {streak.count > 0 && (
+              <div className="card p-4">
+                <p className="section-header">Current Streak</p>
+                <p className={`text-3xl font-bold tracking-tight ${streak.type === 'W' ? 'text-pool-accent' : 'text-pool-loss'}`}>
+                  {streak.type}{streak.count}
+                </p>
+              </div>
+            )}
+            <StatCard label="Comeback Wins" value={comebacks} sub="After losing game 1" />
+            {effectiveLongestStreaks.longestWin > 0 && (
+              <StatCard label="Longest Win Streak" value={effectiveLongestStreaks.longestWin} accent sub="This season" />
+            )}
+            {effectiveLongestStreaks.longestLoss > 0 && (
+              <StatCard label="Longest Loss Streak" value={effectiveLongestStreaks.longestLoss} loss sub="This season" />
+            )}
+            <StatCard label="Total Matches" value={scopedMatches.filter(m => m.winner).length} />
+            {scopedMatches[0]?.played_at && (
+              <StatCard label="Last Match" value={timeAgo(scopedMatches[0].played_at)} />
+            )}
           </div>
         </div>
       )}
 
-      {/* All Time stats grid */}
+      {/* Stats section — all time view */}
       {profileView === 'alltime' && allTimePlayed > 0 && (
         <div>
           <p className="section-header">All Time</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <StatCard label="Wins" value={allTimeW} accent />
             <StatCard label="Losses" value={allTimeL} />
             <StatCard label="Played" value={allTimePlayed} />
@@ -382,6 +420,58 @@ export default function PlayerProfile() {
               label="Win Rate"
               value={allTimePlayed > 0 ? `${Math.round(allTimeW / allTimePlayed * 100)}%` : '—'}
             />
+            {allTimeEloRatings[id] && (
+              <StatCard
+                label="Elo Rating"
+                value={allTimeEloRatings[id].isProvisional ? `~${allTimeEloRatings[id].rating}` : allTimeEloRatings[id].rating}
+                sub={allTimeEloRatings[id].isProvisional ? 'provisional' : undefined}
+              />
+            )}
+            <StatCard label="Comeback Wins" value={comebacks} sub="After losing game 1" />
+            {effectiveLongestStreaks.longestWin > 0 && (
+              <StatCard label="Longest Win Streak" value={effectiveLongestStreaks.longestWin} accent />
+            )}
+            {effectiveLongestStreaks.longestLoss > 0 && (
+              <StatCard label="Longest Loss Streak" value={effectiveLongestStreaks.longestLoss} loss />
+            )}
+            <StatCard label="Total Matches" value={scopedMatches.filter(m => m.winner).length} />
+            {scopedMatches[0]?.played_at && (
+              <StatCard label="Last Match" value={timeAgo(scopedMatches[0].played_at)} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stats section — no active season (career) */}
+      {!activeSeason && allTimePlayed > 0 && (
+        <div>
+          <p className="section-header">Career</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <StatCard label="Wins" value={allTimeW} accent />
+            <StatCard label="Losses" value={allTimeL} />
+            <StatCard label="Played" value={allTimePlayed} />
+            <StatCard
+              label="Win Rate"
+              value={allTimePlayed > 0 ? `${Math.round(allTimeW / allTimePlayed * 100)}%` : '—'}
+            />
+            {allTimeEloRatings[id] && (
+              <StatCard
+                label="Elo Rating"
+                value={allTimeEloRatings[id].isProvisional ? `~${allTimeEloRatings[id].rating}` : allTimeEloRatings[id].rating}
+                sub={allTimeEloRatings[id].isProvisional ? 'provisional' : undefined}
+              />
+            )}
+            <StatCard label="Comeback Wins" value={comebacks} sub="After losing game 1" />
+            {effectiveLongestStreaks.longestWin > 0 && (
+              <StatCard label="Longest Win Streak" value={effectiveLongestStreaks.longestWin} accent />
+            )}
+            {effectiveLongestStreaks.longestLoss > 0 && (
+              <StatCard label="Longest Loss Streak" value={effectiveLongestStreaks.longestLoss} loss />
+            )}
+            <StatCard label="Total Matches" value={scopedMatches.filter(m => m.winner).length} />
+            {scopedMatches[0]?.played_at && (
+              <StatCard label="Last Match" value={timeAgo(scopedMatches[0].played_at)} />
+            )}
           </div>
         </div>
       )}
@@ -415,54 +505,6 @@ export default function PlayerProfile() {
               label="T. Win Rate"
               value={tournamentRecord.winRate != null ? `${(tournamentRecord.winRate * 100).toFixed(0)}%` : '—'}
             />
-          </div>
-        </div>
-      )}
-
-      {/* Streak & comebacks */}
-      {scopedMatches.length > 0 && (
-        <div>
-          <p className="section-header">{profileView === 'season' && activeSeason ? `Season — ${activeSeason.name}` : 'Career'}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {profileView === 'season' && streak.count > 0 && (
-              <div className="card p-4">
-                <p className="section-header">Current Streak</p>
-                <p className={`text-3xl font-bold tracking-tight ${streak.type === 'W' ? 'text-pool-accent' : 'text-pool-loss'}`}>
-                  {streak.type}{streak.count}
-                </p>
-              </div>
-            )}
-            <StatCard
-              label="Comeback Wins"
-              value={comebacks}
-              sub="Won after losing game 1"
-            />
-            {effectiveLongestStreaks.longestWin > 0 && (
-              <StatCard
-                label="Longest Win Streak"
-                value={effectiveLongestStreaks.longestWin}
-                accent
-                sub={profileView === 'season' ? 'This season' : undefined}
-              />
-            )}
-            {effectiveLongestStreaks.longestLoss > 0 && (
-              <StatCard
-                label="Longest Loss Streak"
-                value={effectiveLongestStreaks.longestLoss}
-                loss
-                sub={profileView === 'season' ? 'This season' : undefined}
-              />
-            )}
-            <StatCard
-              label="Total Matches"
-              value={scopedMatches.filter(m => m.winner).length}
-            />
-            {scopedMatches[0]?.played_at && (
-              <StatCard
-                label="Last Match"
-                value={timeAgo(scopedMatches[0].played_at)}
-              />
-            )}
           </div>
         </div>
       )}
@@ -554,6 +596,7 @@ export default function PlayerProfile() {
                     <col />
                     <col className="w-12" />
                     <col className="w-12" />
+                    <col className="w-16" />
                     <col className="w-20" />
                   </colgroup>
                   <thead>
@@ -561,13 +604,15 @@ export default function PlayerProfile() {
                       <th className="pl-5 text-left">Opponent</th>
                       <th className="text-center">W</th>
                       <th className="text-center">L</th>
-                      <th className="text-right pr-5">Win %</th>
+                      <th className="text-center">Win %</th>
+                      <th className="text-right pr-5">Rating</th>
                     </tr>
                   </thead>
                   <tbody>
                     {h2h.map(rec => {
                       const total = rec.wins + rec.losses
                       const pct = total > 0 ? Math.round((rec.wins / total) * 100) : null
+                      const elo = eloRatings[rec.id]
                       return (
                         <tr key={rec.id}>
                           <td className="pl-5">
@@ -580,8 +625,15 @@ export default function PlayerProfile() {
                           </td>
                           <td className="text-center win-text tabular-nums">{rec.wins}</td>
                           <td className="text-center loss-text tabular-nums">{rec.losses}</td>
-                          <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
+                          <td className="text-center font-mono text-sm tabular-nums text-slate-300">
                             {pct != null ? `${pct}%` : '—'}
+                          </td>
+                          <td className="text-right pr-5 font-mono text-sm tabular-nums">
+                            {elo
+                              ? elo.isProvisional
+                                ? <span className="text-slate-600">~{elo.rating}</span>
+                                : <span className="text-slate-100">{elo.rating}</span>
+                              : <span className="text-slate-700">—</span>}
                           </td>
                         </tr>
                       )
@@ -600,6 +652,7 @@ export default function PlayerProfile() {
                     <col />
                     <col className="w-12" />
                     <col className="w-12" />
+                    <col className="w-16" />
                     <col className="w-20" />
                   </colgroup>
                   <thead>
@@ -607,13 +660,15 @@ export default function PlayerProfile() {
                       <th className="pl-5 text-left">Opponent</th>
                       <th className="text-center">W</th>
                       <th className="text-center">L</th>
-                      <th className="text-right pr-5">Win %</th>
+                      <th className="text-center">Win %</th>
+                      <th className="text-right pr-5">Rating</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tournamentH2H.map(rec => {
                       const total = rec.wins + rec.losses
                       const pct = total > 0 ? Math.round((rec.wins / total) * 100) : null
+                      const elo = eloRatings[rec.id]
                       return (
                         <tr key={rec.id}>
                           <td className="pl-5">
@@ -626,8 +681,15 @@ export default function PlayerProfile() {
                           </td>
                           <td className="text-center win-text tabular-nums">{rec.wins}</td>
                           <td className="text-center loss-text tabular-nums">{rec.losses}</td>
-                          <td className="text-right pr-5 font-mono text-sm tabular-nums text-slate-300">
+                          <td className="text-center font-mono text-sm tabular-nums text-slate-300">
                             {pct != null ? `${pct}%` : '—'}
+                          </td>
+                          <td className="text-right pr-5 font-mono text-sm tabular-nums">
+                            {elo
+                              ? elo.isProvisional
+                                ? <span className="text-slate-600">~{elo.rating}</span>
+                                : <span className="text-slate-100">{elo.rating}</span>
+                              : <span className="text-slate-700">—</span>}
                           </td>
                         </tr>
                       )

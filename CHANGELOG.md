@@ -4,6 +4,25 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.9.0 — 2026-05-16
+
+### Added
+- Player Profile: Elo rating card shown in Season stats grid
+- Player Profile: Elo rating card shown in All Time and Career stats grids (computed from full match history)
+- Players page: Elo rating column added to the player list
+- Bo3 Stats: Elo rating column added to Player Breakdown table
+
+### Changed
+- Player Profile: season stats and streak/comeback cards merged into a single section — no more duplicate "Season — *name*" header
+- Player Profile: All Time / Career stats and streak/comeback cards likewise merged to the top of the page
+- Player Profile: "Comeback Wins" sub-label shortened to "After losing game 1" for better mobile fit
+- Bo3 Stats: Best streak and Last 10 columns now visible in All Time view (previously hidden)
+
+### Dev
+- `scripts/sync-live-to-dev.sh` — one-command database refresh from live to dev; preserves dev `user_roles` so admin access survives the sync
+
+---
+
 ## v1.8.0 — 2026-05-11
 
 ### Added

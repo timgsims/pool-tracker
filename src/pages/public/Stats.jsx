@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { buildDisplayNames } from '../../lib/nameUtils'
+import { computeEloRatings } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import Avatar from '../../components/ui/Avatar'
 
@@ -234,6 +235,8 @@ export default function Stats() {
   for (const pid of playerIds) dateStats[pid] = computePlayerStats(dateReliableMatches, pid)
   const dateRecords = computeOverallRecords(dateStats, playerIds, dateReliableMatches, h2h)
 
+  const eloRatings = computeEloRatings(filteredMatches)
+
   const sortedPlayers = [...players].sort((a, b) => (allStats[b.id]?.total ?? 0) - (allStats[a.id]?.total ?? 0))
   const bo3Map = Object.fromEntries(playerIds.map(pid => [pid, bo3ByPid[pid]?.comebacks ?? 0]))
 
@@ -389,24 +392,26 @@ export default function Stats() {
               <table className="table-base min-w-full">
                 <colgroup>
                   <col />
+                  <col className="w-10" />
+                  <col className="w-10" />
+                  <col className="w-10" />
                   <col className="w-14" />
-                  <col className="w-12" />
-                  <col className="w-12" />
-                  <col className="w-16" />
-                  {selectedView !== 'all_time' && <col className="w-14" />}
                   <col className="w-20" />
-                  {selectedView !== 'all_time' && <col className="w-56" />}
+                  <col className="w-12" />
+                  <col className="w-20" />
+                  <col className="w-56" />
                 </colgroup>
                 <thead>
                   <tr>
                     <th className="pl-5 text-left sticky left-0 bg-pool-card z-10">Player</th>
-                    <th className="text-center">Played</th>
+                    <th className="text-center">P</th>
                     <th className="text-center">W</th>
                     <th className="text-center">L</th>
-                    <th className="text-center">Win%</th>
-                    {selectedView !== 'all_time' && <th className="text-center">Best</th>}
+                    <th className="text-center">W%</th>
+                    <th className="text-right pr-3">Rating</th>
+                    <th className="text-center">Best</th>
                     <th className="text-center">Comebacks</th>
-                    {selectedView !== 'all_time' && <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>}
+                    <th className="text-right pr-5 whitespace-nowrap">Last 10 <span className="text-slate-600 font-normal normal-case tracking-normal">← more recent · older →</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -415,6 +420,7 @@ export default function Stats() {
                     if (!s || s.total === 0) return null
                     const comebacks = bo3Map[p.id] ?? 0
                     const best = s.maxWin > 0 ? `W${s.maxWin}` : '—'
+                    const elo = eloRatings[p.id]
 
                     return (
                       <tr key={p.id}>
@@ -433,21 +439,24 @@ export default function Stats() {
                         <td className="text-center text-slate-300 tabular-nums text-sm font-mono">
                           {(s.winRate * 100).toFixed(0)}%
                         </td>
-                        {selectedView !== 'all_time' && (
-                          <td className={`text-center font-mono text-sm tabular-nums ${s.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
-                            {best}
-                          </td>
-                        )}
+                        <td className="text-right pr-3 font-mono text-sm tabular-nums">
+                          {elo
+                            ? elo.isProvisional
+                              ? <span className="text-slate-600">~{elo.rating}</span>
+                              : <span className="text-slate-100">{elo.rating}</span>
+                            : <span className="text-slate-700">—</span>}
+                        </td>
+                        <td className={`text-center font-mono text-sm tabular-nums ${s.maxWin > 0 ? 'win-text' : 'text-slate-600'}`}>
+                          {best}
+                        </td>
                         <td className="text-center text-slate-300 tabular-nums text-sm">
                           {comebacks > 0 ? comebacks : <span className="text-slate-700">—</span>}
                         </td>
-                        {selectedView !== 'all_time' && (
-                          <td className="text-right pr-5">
-                            <div className="flex gap-0.5 justify-end">
-                              <LastTenBadges results={s.lastTen} size="sm" />
-                            </div>
-                          </td>
-                        )}
+                        <td className="text-right pr-5">
+                          <div className="flex gap-0.5 justify-end">
+                            <LastTenBadges results={s.lastTen} size="sm" />
+                          </div>
+                        </td>
                       </tr>
                     )
                   })}

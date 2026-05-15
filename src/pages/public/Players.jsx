@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { buildDisplayNames } from '../../lib/nameUtils'
+import { computeEloRatings } from '../../lib/eloUtils'
 import Avatar from '../../components/ui/Avatar'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 
 export default function Players() {
   const [players, setPlayers] = useState([])
   const [stats, setStats] = useState({})
+  const [eloRatings, setEloRatings] = useState({})
   const [nameMap, setNameMap] = useState({})
   const [loading, setLoading] = useState(true)
 
@@ -15,7 +17,10 @@ export default function Players() {
     Promise.all([
       supabase.from('players').select('id, name, avatar_url').eq('active', true).order('name'),
       supabase.from('player_season_stats').select('player_id, wins, losses, matches_played, win_pct'),
-    ]).then(([{ data: p }, { data: s }]) => {
+      supabase.from('seasons').select('id, start_date, end_date').eq('is_active', true).maybeSingle(),
+      supabase.from('matches').select('id, played_at, player1_id, player2_id, winner_id')
+        .is('tournament_id', null).not('winner_id', 'is', null).order('played_at', { ascending: true }),
+    ]).then(([{ data: p }, { data: s }, { data: season }, { data: allMatches }]) => {
       const playerList = p ?? []
       const statsMap = {}
       for (const row of (s ?? [])) {
@@ -24,8 +29,12 @@ export default function Players() {
         statsMap[row.player_id].losses += row.losses ?? 0
         statsMap[row.player_id].played += row.matches_played ?? 0
       }
+      const seasonMatches = season
+        ? (allMatches ?? []).filter(m => m.played_at >= season.start_date && m.played_at <= season.end_date + 'T23:59:59')
+        : []
       setPlayers(playerList)
       setStats(statsMap)
+      setEloRatings(computeEloRatings(seasonMatches))
       setNameMap(buildDisplayNames(playerList))
       setLoading(false)
     })
@@ -49,13 +58,15 @@ export default function Players() {
             <col className="w-14" />
             <col className="w-14" />
             <col className="w-16" />
+            <col className="w-20" />
           </colgroup>
           <thead>
             <tr>
               <th className="pl-5 text-left">Player</th>
               <th className="text-center">W</th>
               <th className="text-center">L</th>
-              <th className="text-right pr-5">Win%</th>
+              <th className="text-center">Win%</th>
+              <th className="text-right pr-5">Rating</th>
             </tr>
           </thead>
           <tbody>
@@ -65,6 +76,7 @@ export default function Players() {
               const wins = s?.wins ?? 0
               const losses = s?.losses ?? 0
               const winPct = played > 0 ? Math.round((wins / played) * 100) : null
+              const elo = eloRatings[p.id]
               return (
                 <tr key={p.id}>
                   <td className="pl-5">
@@ -82,15 +94,22 @@ export default function Players() {
                   <td className="text-center loss-text tabular-nums text-sm">
                     {played > 0 ? losses : <span className="text-slate-700">—</span>}
                   </td>
-                  <td className="text-right pr-5 text-slate-300 tabular-nums text-sm">
+                  <td className="text-center text-slate-300 tabular-nums text-sm">
                     {winPct !== null ? `${winPct}%` : <span className="text-slate-700">—</span>}
+                  </td>
+                  <td className="text-right pr-5 font-mono text-sm tabular-nums">
+                    {elo
+                      ? elo.isProvisional
+                        ? <span className="text-slate-600">~{elo.rating}</span>
+                        : <span className="text-slate-100">{elo.rating}</span>
+                      : <span className="text-slate-700">—</span>}
                   </td>
                 </tr>
               )
             })}
             {players.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-center py-8 text-slate-600">No players yet.</td>
+                <td colSpan={5} className="text-center py-8 text-slate-600">No players yet.</td>
               </tr>
             )}
           </tbody>
