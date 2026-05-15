@@ -220,7 +220,7 @@ function LeaderboardTab({ standings, playerStreaks, playerAvatars, nameMap }) {
 
 // ─── Head-to-Head tab ─────────────────────────────────────────────────────────
 
-function H2HTab({ players, h2hData, nameMap, playerAvatars = {} }) {
+function H2HTab({ players, h2hData, nameMap, playerAvatars = {}, activeSeason }) {
   const [expanded, setExpanded] = useState(null)
   const [matchHistory, setMatchHistory] = useState({})
 
@@ -363,6 +363,8 @@ function H2HTab({ players, h2hData, nameMap, playerAvatars = {} }) {
                   `)
                   .or(`and(player1_id.eq.${record.player_a_id},player2_id.eq.${record.player_b_id}),and(player1_id.eq.${record.player_b_id},player2_id.eq.${record.player_a_id})`)
                   .is('tournament_id', null)
+                  .gte('played_at', activeSeason ? activeSeason.start_date : '1970-01-01')
+                  .lte('played_at', activeSeason ? activeSeason.end_date + 'T23:59:59' : '9999-12-31')
                   .order('played_at', { ascending: false })
                 setMatchHistory(prev => ({ ...prev, [key]: data ?? [] }))
               }
@@ -627,7 +629,7 @@ export default function Home() {
           nameMap={nameMap}
         />
       )}
-      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} playerAvatars={playerAvatars} />}
+      {tab === 'h2h' && <H2HTab players={standings} h2hData={h2hData} nameMap={nameMap} playerAvatars={playerAvatars} activeSeason={activeSeason} />}
       {tab === 'season' && <SeasonTab standings={standings} yearMatches={yearMatches} activeSeason={activeSeason} />}
 
       {/* Recent results — only on Overall tab */}

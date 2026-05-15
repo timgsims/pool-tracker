@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.9.2 — 2026-05-16
+
+### Fixed
+- Leaderboard H2H: expanded matchup history now scoped to the current season only — previously showed all historical matches
+
+---
+
 ## v1.9.1 — 2026-05-16
 
 ### Added
