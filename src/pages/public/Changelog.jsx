@@ -1,4 +1,6 @@
+import Markdown from 'react-markdown'
 import changelog from '../../../CHANGELOG.md?raw'
+import { markdownComponents } from '../../lib/markdownComponents'
 
 export default function Changelog() {
   return (
@@ -8,9 +10,7 @@ export default function Changelog() {
         <h1 className="page-title">Changelog</h1>
       </div>
       <div className="card p-5">
-        <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
-          {changelog}
-        </pre>
+        <Markdown components={markdownComponents}>{changelog.replace(/^#[^\n]*\n+/, '')}</Markdown>
       </div>
     </div>
   )

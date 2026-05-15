@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.9.3 — 2026-05-16
+
+### Changed
+- Changelog pages (public and admin): markdown now renders formatted — headings, lists, and dividers styled consistently with the Rules page
+
+---
+
 ## v1.9.2 — 2026-05-16
 
 ### Fixed
