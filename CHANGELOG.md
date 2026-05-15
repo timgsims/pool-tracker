@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v1.9.4 — 2026-05-16
+
+### Fixed
+- StatCard: value and sub-label now anchored to the bottom of each card, consistent with record cards on the Bo3 Stats and Tournament Stats pages
+
+---
+
 ## v1.9.3 — 2026-05-16
 
 ### Changed
