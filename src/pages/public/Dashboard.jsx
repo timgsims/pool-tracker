@@ -617,8 +617,15 @@ export default function Dashboard() {
     ? ["Today's Stats", "Recent Results", "Day Standings", "Season Leaderboard"]
     : ["Bracket / Draw", "Recent Results", "Standings", "Player Breakdown"]
 
+  const isTest = import.meta.env.VITE_ENV_NAME === 'test'
+
   return (
     <div className="w-screen h-screen bg-pool-surface overflow-hidden relative hidden lg:flex flex-col">
+      {isTest && (
+        <div className="bg-orange-500 text-white text-xs font-bold text-center py-1 tracking-widest uppercase shrink-0">
+          Development Environment
+        </div>
+      )}
       {isTournamentMisconfig ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-slate-600 text-3xl">No tournament selected — configure in Admin Dashboard</p>

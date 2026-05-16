@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.0.1 — 2026-05-16
+
+### Fixed
+- Display Dashboard: development environment banner now shown on the dashboard page (consistent with the rest of the app)
+
+---
+
 ## v2.0.0 — 2026-05-16
 
 ### Added
