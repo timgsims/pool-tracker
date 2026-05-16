@@ -2,7 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { buildDisplayNames } from '../../lib/nameUtils'
 import { computeEloRatings, buildEloStandings } from '../../lib/eloUtils'
+import Avatar from '../../components/ui/Avatar'
 import BracketView from '../../components/tournament/BracketView'
+
+const NZ_TZ = 'Pacific/Auckland'
+
+function matchTimestamp(iso) {
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-NZ', { timeZone: NZ_TZ, day: 'numeric', month: 'short' })
+  const time = d.toLocaleTimeString('en-GB', { timeZone: NZ_TZ, hour: '2-digit', minute: '2-digit' })
+  return `${date} · ${time}`
+}
 
 const SLIDE_MS = 15000
 const REFRESH_MS = 60000
@@ -43,7 +53,10 @@ function getMatchDisplay(m, nameMap) {
   const gameSeq = isBo3 && games.length
     ? games.map(g => g.winner_id === leftId ? 'W' : 'L').join('-')
     : null
-  return { leftId, rightId, leftWon, rightWon: !leftWon, leftScore, rightScore, isBo3, gameSeq }
+  const rightSeq = gameSeq
+    ? gameSeq.split('-').map(r => r === 'W' ? 'L' : 'W').join('-')
+    : null
+  return { leftId, rightId, leftWon, rightWon: !leftWon, leftScore, rightScore, isBo3, gameSeq, rightSeq }
 }
 
 // ─── Shared header ────────────────────────────────────────────────────────────
@@ -138,7 +151,7 @@ function DayStatsView({ todayMatches, nameMap }) {
   )
 }
 
-function RecentResultsView({ matches, nameMap }) {
+function RecentResultsView({ matches, nameMap, avatarMap }) {
   const clock = useClock()
   const recent = matches.slice(0, 10)
 
@@ -147,29 +160,29 @@ function RecentResultsView({ matches, nameMap }) {
       <ViewHeader title="Recent Results" subtitle="Latest Matches" clock={clock} />
       <div className="grid grid-cols-2 gap-4 flex-1 content-start">
         {recent.map(m => {
-          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq } = getMatchDisplay(m, nameMap)
-          const time = new Date(m.played_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq, rightSeq } = getMatchDisplay(m, nameMap)
           return (
             <div key={m.id} className="card px-8 py-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="badge-green px-3 py-1 text-sm font-bold">{nameMap[m.winner_id] ?? '—'} wins</span>
-                <span className="text-slate-600 text-lg font-mono">{time}</span>
+                <span className="text-slate-600 text-lg font-mono">{matchTimestamp(m.played_at)}</span>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                  {isBo3 && gameSeq && <span className="text-slate-600 text-base shrink-0">({gameSeq})</span>}
                   {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                   <p className={`text-2xl font-bold truncate text-right ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[leftId] ?? '—'}</p>
+                  <Avatar name={nameMap[leftId]} src={avatarMap?.[leftId]} size="xl" />
                 </div>
-                <span className="text-slate-600 text-xl shrink-0">vs</span>
+                <span className="text-slate-600 text-xl shrink-0 font-bold">vs</span>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Avatar name={nameMap[rightId]} src={avatarMap?.[rightId]} size="xl" />
                   <p className={`text-2xl font-bold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[rightId] ?? '—'}</p>
                   {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                  {isBo3 && rightSeq && <span className="text-slate-600 text-base shrink-0">({rightSeq})</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-slate-600 text-base">
-                <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
-                {isBo3 && gameSeq && <><span>·</span><span>{gameSeq}</span></>}
-              </div>
+              <p className="text-slate-600 text-base">{isBo3 ? 'Best of 3' : 'Single game'}</p>
             </div>
           )
         })}
@@ -369,7 +382,7 @@ function TournamentStructureView({ tournament, matches, rounds, nameMap }) {
   )
 }
 
-function TournamentResultsView({ tournament, matches, rounds, nameMap }) {
+function TournamentResultsView({ tournament, matches, rounds, nameMap, avatarMap }) {
   const clock = useClock()
   const isBracket = tournament.format !== 'round_robin'
   const totalRounds = rounds.length > 0 ? Math.max(...rounds.map(r => r.round_number)) : 0
@@ -399,9 +412,8 @@ function TournamentResultsView({ tournament, matches, rounds, nameMap }) {
       </div>
       <div className="grid grid-cols-2 gap-4 flex-1 content-start">
         {recent.map(m => {
-          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq } = getMatchDisplay(m, nameMap)
+          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq, rightSeq } = getMatchDisplay(m, nameMap)
           const stage = getStage(m)
-          const time = new Date(m.played_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
           return (
             <div key={m.id} className="card px-8 py-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
@@ -409,23 +421,24 @@ function TournamentResultsView({ tournament, matches, rounds, nameMap }) {
                   {stage && <span className="text-slate-500 text-sm font-bold uppercase tracking-widest">{stage}</span>}
                   <span className="badge-green px-3 py-1 text-sm font-bold">{nameMap[m.winner_id] ?? '—'} wins</span>
                 </div>
-                <span className="text-slate-600 text-lg font-mono">{time}</span>
+                <span className="text-slate-600 text-lg font-mono">{matchTimestamp(m.played_at)}</span>
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                  {isBo3 && gameSeq && <span className="text-slate-600 text-base shrink-0">({gameSeq})</span>}
                   {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
                   <p className={`text-2xl font-bold truncate text-right ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[leftId] ?? '—'}</p>
+                  <Avatar name={nameMap[leftId]} src={avatarMap?.[leftId]} size="xl" />
                 </div>
-                <span className="text-slate-600 text-xl shrink-0">vs</span>
+                <span className="text-slate-600 text-xl shrink-0 font-bold">vs</span>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Avatar name={nameMap[rightId]} src={avatarMap?.[rightId]} size="xl" />
                   <p className={`text-2xl font-bold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[rightId] ?? '—'}</p>
                   {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                  {isBo3 && rightSeq && <span className="text-slate-600 text-base shrink-0">({rightSeq})</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-slate-600 text-base">
-                <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
-                {isBo3 && gameSeq && <><span>·</span><span>{gameSeq}</span></>}
-              </div>
+              <p className="text-slate-600 text-base">{isBo3 ? 'Best of 3' : 'Single game'}</p>
             </div>
           )
         })}
@@ -581,7 +594,8 @@ export default function Dashboard() {
       ])
 
       const allPlayers = (tournament?.tournament_participants ?? []).map(p => p.player).filter(Boolean)
-      setData({ mode: 'tournament', tournament, matches: matches ?? [], rounds: rounds ?? [], nameMap: buildDisplayNames(allPlayers) })
+      const avatarMap = Object.fromEntries(allPlayers.map(p => [p.id, p.avatar_url]))
+      setData({ mode: 'tournament', tournament, matches: matches ?? [], rounds: rounds ?? [], nameMap: buildDisplayNames(allPlayers), avatarMap })
     } else {
       const todayStr = new Date().toISOString().slice(0, 10)
       const [{ data: season }, { data: allMatches }, { data: players }] = await Promise.all([
@@ -590,7 +604,7 @@ export default function Dashboard() {
           .select('id, played_at, format, player1_id, player2_id, winner_id, tournament_id, games(game_number, winner_id)')
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: false }),
-        supabase.from('players').select('id, name').eq('active', true),
+        supabase.from('players').select('id, name, avatar_url').eq('active', true),
       ])
 
       const nonTournament = (allMatches ?? []).filter(m => !m.tournament_id)
@@ -606,8 +620,9 @@ export default function Dashboard() {
       const eloRatings = computeEloRatings([...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at)))
       const standings = buildEloStandings(eloRatings, players ?? [])
       const nameMap = buildDisplayNames(players ?? [])
+      const avatarMap = Object.fromEntries((players ?? []).map(p => [p.id, p.avatar_url]))
 
-      setData({ mode: 'bo3', todayMatches, recentMatches: nonTournament.slice(0, 10), standings, activeSeason: season, nameMap })
+      setData({ mode: 'bo3', todayMatches, recentMatches: nonTournament.slice(0, 10), standings, activeSeason: season, nameMap, avatarMap })
     }
 
     setLastRefresh(new Date())
@@ -636,14 +651,14 @@ export default function Dashboard() {
 
   const bo3Views = data.mode === 'bo3' ? [
     <DayStatsView key="day-stats" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
-    <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} />,
+    <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
     <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
     <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} />,
   ] : null
 
   const tournamentViews = data.mode === 'tournament' && data.tournament ? [
     <TournamentStructureView key="t-structure" tournament={data.tournament} matches={data.matches} rounds={data.rounds} nameMap={data.nameMap} />,
-    <TournamentResultsView key="t-results" tournament={data.tournament} matches={data.matches} rounds={data.rounds} nameMap={data.nameMap} />,
+    <TournamentResultsView key="t-results" tournament={data.tournament} matches={data.matches} rounds={data.rounds} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
     <TournamentStandingsView key="t-standings" tournament={data.tournament} matches={data.matches} nameMap={data.nameMap} />,
     <TournamentBreakdownView key="t-breakdown" tournament={data.tournament} matches={data.matches} nameMap={data.nameMap} />,
   ] : null
