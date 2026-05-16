@@ -606,6 +606,17 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState(0)
   const [lastRefresh, setLastRefresh] = useState(null)
   const numViewsRef = useRef(3)
+  const intervalRef = useRef(null)
+
+  const startInterval = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => setCurrentView(v => (v + 1) % numViewsRef.current), SLIDE_MS)
+  }, [])
+
+  const goToView = useCallback((i) => {
+    setCurrentView(i)
+    startInterval()
+  }, [startInterval])
 
   const loadData = useCallback(async () => {
     const { data: cfg } = await supabase
@@ -677,9 +688,9 @@ export default function Dashboard() {
   }, [loadData])
 
   useEffect(() => {
-    const t = setInterval(() => setCurrentView(v => (v + 1) % numViewsRef.current), SLIDE_MS)
-    return () => clearInterval(t)
-  }, [])
+    startInterval()
+    return () => clearInterval(intervalRef.current)
+  }, [startInterval])
 
   if (!data) {
     return (
@@ -758,7 +769,7 @@ export default function Dashboard() {
               {viewNames.map((name, i) => (
                 <button
                   key={i}
-                  onClick={() => setCurrentView(i)}
+                  onClick={() => goToView(i)}
                   className={`text-sm font-semibold tracking-wide uppercase transition-colors ${i === currentView ? 'text-pool-accent' : 'text-slate-600 hover:text-slate-400'}`}
                 >
                   {name}
