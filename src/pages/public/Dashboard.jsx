@@ -39,6 +39,27 @@ function computeStandings(participantIds, matches) {
   return stats
 }
 
+// matches must be descending (most-recent first) as returned by the query
+function computeSeasonStats(matches, pid) {
+  const pm = matches.filter(m => m.player1_id === pid || m.player2_id === pid)
+  if (!pm.length) return null
+  const ascending = [...pm].sort((a, b) => a.played_at.localeCompare(b.played_at))
+  const wins = ascending.filter(m => m.winner_id === pid).length
+  const total = ascending.length
+  let curW = 0, maxW = 0
+  for (const m of ascending) {
+    if (m.winner_id === pid) { curW++; if (curW > maxW) maxW = curW } else curW = 0
+  }
+  let comebacks = 0
+  for (const m of ascending) {
+    if (m.winner_id !== pid || m.format !== 'best_of_3' || !m.games?.length) continue
+    const sorted = [...m.games].sort((a, b) => a.game_number - b.game_number)
+    if (sorted[0]?.winner_id !== pid) comebacks++
+  }
+  const lastTen = pm.slice(0, 10).map(m => m.winner_id === pid ? 'W' : 'L')
+  return { total, wins, losses: total - wins, winRate: total > 0 ? wins / total : 0, maxWin: maxW, comebacks, lastTen }
+}
+
 function getMatchDisplay(m, nameMap) {
   const n1 = nameMap[m.player1_id] ?? ''
   const n2 = nameMap[m.player2_id] ?? ''
@@ -57,6 +78,26 @@ function getMatchDisplay(m, nameMap) {
     ? gameSeq.split('-').map(r => r === 'W' ? 'L' : 'W').join('-')
     : null
   return { leftId, rightId, leftWon, rightWon: !leftWon, leftScore, rightScore, isBo3, gameSeq, rightSeq }
+}
+
+function LastTenBadges({ results }) {
+  if (!results?.length) return <span className="text-slate-700 text-2xl">—</span>
+  return (
+    <div className="flex gap-1">
+      {results.map((r, i) => (
+        <span
+          key={i}
+          className={`w-9 h-9 flex items-center justify-center rounded text-sm font-bold ${
+            r === 'W'
+              ? 'bg-green-900/50 text-pool-win border border-green-800/60'
+              : 'bg-red-900/50 text-pool-loss border border-red-900/60'
+          }`}
+        >
+          {r}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 // ─── Shared header ────────────────────────────────────────────────────────────
@@ -258,8 +299,9 @@ function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
   )
 }
 
-function SeasonLeaderboardView({ standings, activeSeason }) {
+function SeasonLeaderboardView({ standings, activeSeason, playerSeasonStats, avatarMap }) {
   const clock = useClock()
+  const th = 'py-5 text-slate-500 text-base font-semibold uppercase tracking-widest'
 
   return (
     <div className="h-full p-16 flex flex-col">
@@ -268,29 +310,61 @@ function SeasonLeaderboardView({ standings, activeSeason }) {
         <table className="w-full h-full">
           <thead>
             <tr className="border-b border-pool-border">
-              <th className="pl-10 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest w-16">#</th>
-              <th className="pl-6 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">W</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">L</th>
-              <th className="pr-10 py-6 text-right text-slate-500 text-lg font-semibold uppercase tracking-widest w-40">Rating</th>
+              <th className={`pl-10 pr-4 text-left ${th} w-16`}>#</th>
+              <th className={`pl-2 text-left ${th}`}>Player</th>
+              <th className={`text-center ${th} w-20`}>P</th>
+              <th className={`text-center ${th} w-20`}>W</th>
+              <th className={`text-center ${th} w-20`}>L</th>
+              <th className={`text-center ${th} w-24`}>W%</th>
+              <th className={`text-right ${th} w-36`}>Rating</th>
+              <th className={`text-center ${th} w-24`}>Best</th>
+              <th className={`text-center ${th} w-32`}>Comebacks</th>
+              <th className={`pr-10 text-right ${th}`}>
+                Last 10 <span className="text-slate-700 font-normal normal-case tracking-normal text-sm">← recent · older →</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {standings.map((s, i) => (
-              <tr key={s.player_id} className="border-b border-pool-border/30 last:border-0">
-                <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">
-                  {!s.isProvisional && i === 0 ? '👑' : i + 1}
-                </td>
-                <td className="pl-6 py-6 text-4xl font-bold text-slate-100">{s.player_name}</td>
-                <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{s.wins}</td>
-                <td className="py-6 text-center text-3xl loss-text tabular-nums">{s.losses}</td>
-                <td className="pr-10 py-6 text-right font-mono text-3xl tabular-nums">
-                  {s.isProvisional
-                    ? <span className="text-slate-600">~{s.rating}</span>
-                    : <span className="text-slate-100">{s.rating}</span>}
-                </td>
-              </tr>
-            ))}
+            {standings.map((s, i) => {
+              const ps = playerSeasonStats?.[s.player_id]
+              return (
+                <tr key={s.player_id} className="border-b border-pool-border/30 last:border-0">
+                  <td className="pl-10 pr-4 py-4 text-slate-600 font-mono text-2xl">
+                    {!s.isProvisional && i === 0 ? '👑' : i + 1}
+                  </td>
+                  <td className="pl-2 py-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={s.player_name} src={avatarMap?.[s.player_id]} size="lg" />
+                      <span className="text-3xl font-bold text-slate-100">{s.player_name}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 text-center text-2xl text-slate-400 tabular-nums">{ps?.total ?? '—'}</td>
+                  <td className="py-4 text-center text-2xl win-text font-bold tabular-nums">{s.wins}</td>
+                  <td className="py-4 text-center text-2xl loss-text tabular-nums">{s.losses}</td>
+                  <td className="py-4 text-center font-mono text-2xl text-slate-300 tabular-nums">
+                    {ps ? `${Math.round(ps.winRate * 100)}%` : '—'}
+                  </td>
+                  <td className="py-4 text-right font-mono text-2xl tabular-nums pr-4">
+                    {s.isProvisional
+                      ? <span className="text-slate-600">~{s.rating}</span>
+                      : <span className="text-slate-100">{s.rating}</span>}
+                  </td>
+                  <td className="py-4 text-center font-mono text-2xl tabular-nums">
+                    {ps?.maxWin > 0
+                      ? <span className="win-text">W{ps.maxWin}</span>
+                      : <span className="text-slate-700">—</span>}
+                  </td>
+                  <td className="py-4 text-center text-2xl text-slate-300 tabular-nums">
+                    {ps?.comebacks > 0 ? ps.comebacks : <span className="text-slate-700">—</span>}
+                  </td>
+                  <td className="pr-10 py-4">
+                    <div className="flex justify-end">
+                      <LastTenBadges results={ps?.lastTen} />
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -630,8 +704,11 @@ export default function Dashboard() {
       const standings = buildEloStandings(eloRatings, players ?? [])
       const nameMap = buildDisplayNames(players ?? [])
       const avatarMap = Object.fromEntries((players ?? []).map(p => [p.id, p.avatar_url]))
+      const playerSeasonStats = Object.fromEntries(
+        (players ?? []).map(p => [p.id, computeSeasonStats(seasonMatches, p.id)])
+      )
 
-      setData({ mode: 'bo3', todayMatches, recentMatches: nonTournament.slice(0, 10), standings, activeSeason: season, nameMap, avatarMap })
+      setData({ mode: 'bo3', todayMatches, recentMatches: nonTournament.slice(0, 10), standings, activeSeason: season, nameMap, avatarMap, playerSeasonStats })
     }
 
     setLastRefresh(new Date())
@@ -662,7 +739,7 @@ export default function Dashboard() {
     <DayStatsView key="day-stats" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
     <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
     <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
-    <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} />,
+    <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} playerSeasonStats={data.playerSeasonStats} avatarMap={data.avatarMap} />,
   ] : null
 
   const tournamentViews = data.mode === 'tournament' && data.tournament ? [
