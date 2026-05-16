@@ -15,6 +15,7 @@ import Rules from './pages/public/Rules'
 import ArchivedSeasons from './pages/public/ArchivedSeasons'
 import SeasonDetail from './pages/public/SeasonDetail'
 import Changelog from './pages/public/Changelog'
+import Dashboard from './pages/public/Dashboard'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -62,6 +63,7 @@ export default function App() {
       <HashRouter>
         <ProfileSetupGuard>
           <Routes>
+            <Route path="dashboard" element={<Dashboard />} />
             <Route element={<Layout />}>
               {/* Public routes — no auth required */}
               <Route index element={<Home />} />

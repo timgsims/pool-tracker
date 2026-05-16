@@ -3,6 +3,98 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import StatCard from '../../components/ui/StatCard'
 
+function DashboardConfig() {
+  const [mode, setMode] = useState('bo3')
+  const [tournamentId, setTournamentId] = useState('')
+  const [tournaments, setTournaments] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('dashboard_config').select('*').eq('id', 1).single(),
+      supabase.from('tournaments').select('id, name, date').order('date', { ascending: false }).limit(20),
+    ]).then(([{ data: cfg }, { data: t }]) => {
+      if (cfg) { setMode(cfg.mode); setTournamentId(cfg.tournament_id ?? '') }
+      setTournaments(t ?? [])
+    })
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    setSaved(false)
+    await supabase.from('dashboard_config').upsert({
+      id: 1,
+      mode,
+      tournament_id: mode === 'tournament' && tournamentId ? tournamentId : null,
+      updated_at: new Date().toISOString(),
+    })
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  return (
+    <div className="border border-pool-border rounded-xl p-5 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-semibold text-slate-100 text-sm">Display Dashboard</p>
+          <p className="text-slate-500 text-xs mt-0.5">Controls what is shown on the garage display screen</p>
+        </div>
+        <a
+          href="/#/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-ghost text-sm py-1.5 shrink-0"
+        >
+          Open Dashboard ↗
+        </a>
+      </div>
+
+      <div className="flex items-center gap-1 p-1 bg-pool-elevated rounded-lg w-fit">
+        {['bo3', 'tournament'].map(m => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              mode === m ? 'bg-pool-card text-slate-100 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {m === 'bo3' ? 'Bo3 Matches' : 'Tournament'}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'tournament' && (
+        <div>
+          <label className="block text-xs text-slate-500 mb-1.5 font-medium">Select tournament</label>
+          <select
+            value={tournamentId}
+            onChange={e => setTournamentId(e.target.value)}
+            className="w-full bg-pool-elevated border border-pool-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-pool-accent"
+          >
+            <option value="">— choose a tournament —</option>
+            {tournaments.map(t => (
+              <option key={t.id} value={t.id}>{t.name} ({t.date})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="btn-primary text-sm py-1.5 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        {saved && <p className="text-green-400 text-xs">Saved</p>}
+      </div>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const [counts, setCounts] = useState({ players: 0, matches: 0, users: 0 })
   const [resetting, setResetting] = useState(false)
@@ -55,6 +147,8 @@ export default function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      <DashboardConfig />
 
       <div className="border border-red-900/50 rounded-xl p-5 space-y-3 bg-red-950/20">
         <p className="text-red-400 font-semibold text-sm">Danger Zone</p>

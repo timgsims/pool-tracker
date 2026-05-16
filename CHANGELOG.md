@@ -4,6 +4,18 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.0.0 — 2026-05-16
+
+### Added
+- Display Dashboard (`/dashboard`): full-screen 1920×1080 display page for the garage screen, hidden on mobile
+- Dashboard auto-rotates between 4 views every 15 seconds with a horizontal slide animation, and auto-refreshes all data every 60 seconds
+- **Bo3 mode** — four views: Today's Stats (total matches + per-player wins today), Recent Results (last 10), Day Standings (today's W/L leaderboard), Season Leaderboard (Elo standings)
+- **Tournament mode** — four views: Bracket or Round Robin draw, Recent Results with stage labels (Quarter-Final / Semi-Final / Final), Tournament Standings, Player Breakdown (W/L/Win%)
+- Admin Dashboard: Display Dashboard control panel — toggle between Bo3 and Tournament mode, select which tournament to display, link to open the dashboard in a new tab
+- Dashboard config persisted in new `dashboard_config` database table (publicly readable, admin-writable)
+
+---
+
 ## v1.9.4 — 2026-05-16
 
 ### Fixed
