@@ -4,6 +4,15 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.0.2 — 2026-05-16
+
+### Fixed
+- Display Dashboard: Recent Results cards now show both players with scores, game sequence (W-L-W), and time — consistent with match display elsewhere in the app
+- Display Dashboard: leaderboard tables now have breathing room between the rank number and player name columns
+- Display Dashboard: Tournament Recent Results cards updated to match the same richer format
+
+---
+
 ## v2.0.1 — 2026-05-16
 
 ### Fixed

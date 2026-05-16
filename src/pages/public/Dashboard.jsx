@@ -29,6 +29,23 @@ function computeStandings(participantIds, matches) {
   return stats
 }
 
+function getMatchDisplay(m, nameMap) {
+  const n1 = nameMap[m.player1_id] ?? ''
+  const n2 = nameMap[m.player2_id] ?? ''
+  const p1First = n1.localeCompare(n2) <= 0
+  const leftId = p1First ? m.player1_id : m.player2_id
+  const rightId = p1First ? m.player2_id : m.player1_id
+  const leftWon = m.winner_id === leftId
+  const isBo3 = m.format === 'best_of_3'
+  const games = [...(m.games ?? [])].sort((a, b) => (a.game_number ?? 0) - (b.game_number ?? 0))
+  const leftScore = games.filter(g => g.winner_id === leftId).length
+  const rightScore = games.filter(g => g.winner_id === rightId).length
+  const gameSeq = isBo3 && games.length
+    ? games.map(g => g.winner_id === leftId ? 'W' : 'L').join('-')
+    : null
+  return { leftId, rightId, leftWon, rightWon: !leftWon, leftScore, rightScore, isBo3, gameSeq }
+}
+
 // ─── Shared header ────────────────────────────────────────────────────────────
 
 function ViewHeader({ title, subtitle, clock }) {
@@ -130,15 +147,29 @@ function RecentResultsView({ matches, nameMap }) {
       <ViewHeader title="Recent Results" subtitle="Latest Matches" clock={clock} />
       <div className="grid grid-cols-2 gap-4 flex-1 content-start">
         {recent.map(m => {
-          const winnerId = m.winner_id
-          const loserId = winnerId === m.player1_id ? m.player2_id : m.player1_id
+          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq } = getMatchDisplay(m, nameMap)
+          const time = new Date(m.played_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
           return (
-            <div key={m.id} className="card p-6 flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-3xl font-bold text-slate-100 truncate">{nameMap[winnerId] ?? '—'}</p>
-                <p className="text-slate-500 text-xl mt-1">def. {nameMap[loserId] ?? '—'}</p>
+            <div key={m.id} className="card px-8 py-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="badge-green px-3 py-1 text-sm font-bold">{nameMap[m.winner_id] ?? '—'} wins</span>
+                <span className="text-slate-600 text-lg font-mono">{time}</span>
               </div>
-              <span className="badge-green shrink-0 text-base px-3 py-1">WIN</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                  {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
+                  <p className={`text-2xl font-bold truncate text-right ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[leftId] ?? '—'}</p>
+                </div>
+                <span className="text-slate-600 text-xl shrink-0">vs</span>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <p className={`text-2xl font-bold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[rightId] ?? '—'}</p>
+                  {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600 text-base">
+                <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
+                {isBo3 && gameSeq && <><span>·</span><span>{gameSeq}</span></>}
+              </div>
             </div>
           )
         })}
@@ -177,7 +208,7 @@ function DayLeaderboardView({ todayMatches, nameMap }) {
           <thead>
             <tr className="border-b border-pool-border">
               <th className="pl-10 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest w-16">#</th>
-              <th className="py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
+              <th className="pl-6 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
               <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Played</th>
               <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Won</th>
               <th className="pr-10 py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Lost</th>
@@ -187,7 +218,7 @@ function DayLeaderboardView({ todayMatches, nameMap }) {
             {rows.map((r, i) => (
               <tr key={r.id} className="border-b border-pool-border/30 last:border-0">
                 <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">{i + 1}</td>
-                <td className="py-6 text-4xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</td>
+                <td className="pl-6 py-6 text-4xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</td>
                 <td className="py-6 text-center text-3xl text-slate-400 tabular-nums">{r.played}</td>
                 <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{r.wins}</td>
                 <td className="pr-10 py-6 text-center text-3xl loss-text tabular-nums">{r.losses}</td>
@@ -216,7 +247,7 @@ function SeasonLeaderboardView({ standings, activeSeason }) {
           <thead>
             <tr className="border-b border-pool-border">
               <th className="pl-10 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest w-16">#</th>
-              <th className="py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
+              <th className="pl-6 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
               <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">W</th>
               <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">L</th>
               <th className="pr-10 py-6 text-right text-slate-500 text-lg font-semibold uppercase tracking-widest w-40">Rating</th>
@@ -228,7 +259,7 @@ function SeasonLeaderboardView({ standings, activeSeason }) {
                 <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">
                   {!s.isProvisional && i === 0 ? '👑' : i + 1}
                 </td>
-                <td className="py-6 text-4xl font-bold text-slate-100">{s.player_name}</td>
+                <td className="pl-6 py-6 text-4xl font-bold text-slate-100">{s.player_name}</td>
                 <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{s.wins}</td>
                 <td className="py-6 text-center text-3xl loss-text tabular-nums">{s.losses}</td>
                 <td className="pr-10 py-6 text-right font-mono text-3xl tabular-nums">
@@ -305,7 +336,7 @@ function TournamentStructureView({ tournament, matches, rounds, nameMap }) {
             <thead>
               <tr className="border-b border-pool-border">
                 <th className="pl-10 py-6 text-left text-slate-500 text-lg uppercase tracking-widest w-16">#</th>
-                <th className="py-6 text-left text-slate-500 text-lg uppercase tracking-widest">Player</th>
+                <th className="pl-6 py-6 text-left text-slate-500 text-lg uppercase tracking-widest">Player</th>
                 <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">W</th>
                 <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">L</th>
                 <th className="pr-10 py-6 text-right text-slate-500 text-lg uppercase tracking-widest w-32">Win%</th>
@@ -319,7 +350,7 @@ function TournamentStructureView({ tournament, matches, rounds, nameMap }) {
                 return (
                   <tr key={p.player_id} className="border-b border-pool-border/30 last:border-0">
                     <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">{pos}</td>
-                    <td className={`py-6 text-4xl font-bold ${pos === 1 ? 'text-amber-300' : 'text-slate-100'}`}>
+                    <td className={`pl-6 py-6 text-4xl font-bold ${pos === 1 ? 'text-amber-300' : 'text-slate-100'}`}>
                       {nameMap[p.player_id] ?? ''}
                     </td>
                     <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{s?.wins ?? 0}</td>
@@ -368,26 +399,32 @@ function TournamentResultsView({ tournament, matches, rounds, nameMap }) {
       </div>
       <div className="grid grid-cols-2 gap-4 flex-1 content-start">
         {recent.map(m => {
-          const winnerId = m.winner_id
-          const loserId = winnerId === m.player1_id ? m.player2_id : m.player1_id
+          const { leftId, rightId, leftWon, rightWon, leftScore, rightScore, isBo3, gameSeq } = getMatchDisplay(m, nameMap)
           const stage = getStage(m)
+          const time = new Date(m.played_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
           return (
-            <div key={m.id} className="card p-6">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <p className="text-slate-500 text-sm font-semibold uppercase tracking-widest">{stage}</p>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-amber-400">🏆</span>
-                  <span className="text-amber-300 font-bold text-lg">{nameMap[winnerId] ?? '—'}</span>
+            <div key={m.id} className="card px-8 py-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {stage && <span className="text-slate-500 text-sm font-bold uppercase tracking-widest">{stage}</span>}
+                  <span className="badge-green px-3 py-1 text-sm font-bold">{nameMap[m.winner_id] ?? '—'} wins</span>
+                </div>
+                <span className="text-slate-600 text-lg font-mono">{time}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                  {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${leftWon ? 'win-text' : 'loss-text'}`}>{leftScore}</span>}
+                  <p className={`text-2xl font-bold truncate text-right ${leftWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[leftId] ?? '—'}</p>
+                </div>
+                <span className="text-slate-600 text-xl shrink-0">vs</span>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <p className={`text-2xl font-bold truncate ${rightWon ? 'text-slate-100' : 'text-slate-500'}`}>{nameMap[rightId] ?? '—'}</p>
+                  {isBo3 && <span className={`text-3xl font-bold tabular-nums shrink-0 ${rightWon ? 'win-text' : 'loss-text'}`}>{rightScore}</span>}
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <p className={`text-2xl font-bold truncate ${winnerId === m.player1_id ? 'text-slate-100' : 'text-slate-500'}`}>
-                  {nameMap[m.player1_id] ?? '—'}
-                </p>
-                <span className="text-slate-600 text-lg shrink-0">vs</span>
-                <p className={`text-2xl font-bold truncate text-right ${winnerId === m.player2_id ? 'text-slate-100' : 'text-slate-500'}`}>
-                  {nameMap[m.player2_id] ?? '—'}
-                </p>
+              <div className="flex items-center gap-3 text-slate-600 text-base">
+                <span>{isBo3 ? 'Best of 3' : 'Single game'}</span>
+                {isBo3 && gameSeq && <><span>·</span><span>{gameSeq}</span></>}
               </div>
             </div>
           )
@@ -428,7 +465,7 @@ function TournamentStandingsView({ tournament, matches, nameMap }) {
           <thead>
             <tr className="border-b border-pool-border">
               <th className="pl-10 py-6 text-left text-slate-500 text-lg uppercase tracking-widest w-16">#</th>
-              <th className="py-6 text-left text-slate-500 text-lg uppercase tracking-widest">Player</th>
+              <th className="pl-6 py-6 text-left text-slate-500 text-lg uppercase tracking-widest">Player</th>
               <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Played</th>
               <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Won</th>
               <th className="pr-10 py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Lost</th>
@@ -442,7 +479,7 @@ function TournamentStandingsView({ tournament, matches, nameMap }) {
               return (
                 <tr key={p.player_id} className="border-b border-pool-border/30 last:border-0">
                   <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">{pos}</td>
-                  <td className={`py-6 text-4xl font-bold ${pos === 1 ? 'text-amber-300' : 'text-slate-100'}`}>
+                  <td className={`pl-6 py-6 text-4xl font-bold ${pos === 1 ? 'text-amber-300' : 'text-slate-100'}`}>
                     {nameMap[p.player_id] ?? ''}
                   </td>
                   <td className="py-6 text-center text-3xl text-slate-400 tabular-nums">{played}</td>
@@ -486,10 +523,10 @@ function TournamentBreakdownView({ tournament, matches, nameMap }) {
           <thead>
             <tr className="border-b border-pool-border">
               <th className="pl-10 py-6 text-left text-slate-500 text-lg uppercase tracking-widest">Player</th>
-              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Played</th>
-              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Won</th>
-              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-32">Lost</th>
-              <th className="pr-10 py-6 text-right text-slate-500 text-lg uppercase tracking-widest w-32">Win%</th>
+              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-40">Played</th>
+              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-40">Won</th>
+              <th className="py-6 text-center text-slate-500 text-lg uppercase tracking-widest w-40">Lost</th>
+              <th className="pr-10 py-6 text-right text-slate-500 text-lg uppercase tracking-widest w-40">Win%</th>
             </tr>
           </thead>
           <tbody>
@@ -534,7 +571,7 @@ export default function Dashboard() {
           tournament_participants(player_id, final_position, player:player_id(id, name, avatar_url))
         `).eq('id', cfg.tournament_id).single(),
         supabase.from('matches')
-          .select('id, played_at, format, player1_id, player2_id, winner_id')
+          .select('id, played_at, format, player1_id, player2_id, winner_id, games(game_number, winner_id)')
           .eq('tournament_id', cfg.tournament_id)
           .order('played_at').order('created_at'),
         supabase.from('tournament_rounds')
@@ -550,7 +587,7 @@ export default function Dashboard() {
       const [{ data: season }, { data: allMatches }, { data: players }] = await Promise.all([
         supabase.from('seasons').select('id, name, start_date, end_date').eq('is_active', true).maybeSingle(),
         supabase.from('matches')
-          .select('id, played_at, player1_id, player2_id, winner_id, tournament_id')
+          .select('id, played_at, format, player1_id, player2_id, winner_id, tournament_id, games(game_number, winner_id)')
           .not('winner_id', 'is', null)
           .order('played_at', { ascending: false }),
         supabase.from('players').select('id, name').eq('active', true),
