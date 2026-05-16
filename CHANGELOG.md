@@ -4,6 +4,15 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.0.3 — 2026-05-16
+
+### Changed
+- Display Dashboard Recent Results: cards now show both players with scores, Bo3 game sequence (W-L-W per side), player avatars, and a full date + time stamp (e.g. "16 May · 13:58")
+- Display Dashboard Day Standings: full player breakdown — avatar, P/W/L/W%, Best streak, Comebacks, and today's results as W/L badges
+- Display Dashboard Season Leaderboard: full player breakdown matching Bo3 Stats page — avatar, P/W/L/W%, Elo rating, Best streak, Comebacks, Last 10 W/L badges
+
+---
+
 ## v2.0.2 — 2026-05-16
 
 ### Fixed
