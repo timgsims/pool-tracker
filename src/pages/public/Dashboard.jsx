@@ -196,7 +196,7 @@ function RecentResultsView({ matches, nameMap, avatarMap }) {
   )
 }
 
-function DayLeaderboardView({ todayMatches, nameMap }) {
+function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
   const clock = useClock()
 
   const playerStats = {}
@@ -222,24 +222,33 @@ function DayLeaderboardView({ todayMatches, nameMap }) {
             <tr className="border-b border-pool-border">
               <th className="pl-10 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest w-16">#</th>
               <th className="pl-6 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Played</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Won</th>
-              <th className="pr-10 py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">Lost</th>
+              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">P</th>
+              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">W</th>
+              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">L</th>
+              <th className="pr-10 py-6 text-right text-slate-500 text-lg font-semibold uppercase tracking-widest w-40">W%</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id} className="border-b border-pool-border/30 last:border-0">
                 <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">{i + 1}</td>
-                <td className="pl-6 py-6 text-4xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</td>
+                <td className="pl-6 py-6">
+                  <div className="flex items-center gap-4">
+                    <Avatar name={nameMap[r.id]} src={avatarMap?.[r.id]} size="xl" />
+                    <span className="text-4xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</span>
+                  </div>
+                </td>
                 <td className="py-6 text-center text-3xl text-slate-400 tabular-nums">{r.played}</td>
                 <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{r.wins}</td>
-                <td className="pr-10 py-6 text-center text-3xl loss-text tabular-nums">{r.losses}</td>
+                <td className="py-6 text-center text-3xl loss-text tabular-nums">{r.losses}</td>
+                <td className="pr-10 py-6 text-right font-mono text-3xl text-slate-300 tabular-nums">
+                  {Math.round((r.wins / r.played) * 100)}%
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
+                <td colSpan={6} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
               </tr>
             )}
           </tbody>
@@ -652,7 +661,7 @@ export default function Dashboard() {
   const bo3Views = data.mode === 'bo3' ? [
     <DayStatsView key="day-stats" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
     <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
-    <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
+    <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
     <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} />,
   ] : null
 
