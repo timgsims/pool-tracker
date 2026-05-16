@@ -239,19 +239,12 @@ function RecentResultsView({ matches, nameMap, avatarMap }) {
 
 function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
   const clock = useClock()
+  const th = 'py-5 text-slate-500 text-base font-semibold uppercase tracking-widest'
 
-  const playerStats = {}
-  for (const m of todayMatches) {
-    if (!m.winner_id) continue
-    const loserId = m.winner_id === m.player1_id ? m.player2_id : m.player1_id
-    for (const id of [m.winner_id, loserId]) {
-      if (!playerStats[id]) playerStats[id] = { wins: 0, losses: 0 }
-    }
-    playerStats[m.winner_id].wins++
-    playerStats[loserId].losses++
-  }
-  const rows = Object.entries(playerStats)
-    .map(([id, s]) => ({ id, ...s, played: s.wins + s.losses }))
+  const playerIds = [...new Set(todayMatches.flatMap(m => [m.player1_id, m.player2_id]))]
+  const rows = playerIds
+    .map(id => ({ id, ...computeSeasonStats(todayMatches, id) }))
+    .filter(r => r.total > 0)
     .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
 
   return (
@@ -261,35 +254,53 @@ function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
         <table className="w-full h-full">
           <thead>
             <tr className="border-b border-pool-border">
-              <th className="pl-10 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest w-16">#</th>
-              <th className="pl-6 py-6 text-left text-slate-500 text-lg font-semibold uppercase tracking-widest">Player</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">P</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">W</th>
-              <th className="py-6 text-center text-slate-500 text-lg font-semibold uppercase tracking-widest w-32">L</th>
-              <th className="pr-10 py-6 text-right text-slate-500 text-lg font-semibold uppercase tracking-widest w-40">W%</th>
+              <th className={`pl-10 pr-4 text-left ${th} w-16`}>#</th>
+              <th className={`pl-2 text-left ${th}`}>Player</th>
+              <th className={`text-center ${th} w-20`}>P</th>
+              <th className={`text-center ${th} w-20`}>W</th>
+              <th className={`text-center ${th} w-20`}>L</th>
+              <th className={`text-center ${th} w-24`}>W%</th>
+              <th className={`text-center ${th} w-24`}>Best</th>
+              <th className={`text-center ${th} w-32`}>Comebacks</th>
+              <th className={`pr-10 text-right ${th}`}>
+                Today <span className="text-slate-700 font-normal normal-case tracking-normal text-sm">← recent · older →</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id} className="border-b border-pool-border/30 last:border-0">
-                <td className="pl-10 py-6 text-slate-600 font-mono text-2xl">{i + 1}</td>
-                <td className="pl-6 py-6">
-                  <div className="flex items-center gap-4">
-                    <Avatar name={nameMap[r.id]} src={avatarMap?.[r.id]} size="xl" />
-                    <span className="text-4xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</span>
+                <td className="pl-10 pr-4 py-4 text-slate-600 font-mono text-2xl">{i + 1}</td>
+                <td className="pl-2 py-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={nameMap[r.id]} src={avatarMap?.[r.id]} size="lg" />
+                    <span className="text-3xl font-bold text-slate-100">{nameMap[r.id] ?? r.id}</span>
                   </div>
                 </td>
-                <td className="py-6 text-center text-3xl text-slate-400 tabular-nums">{r.played}</td>
-                <td className="py-6 text-center text-3xl win-text font-bold tabular-nums">{r.wins}</td>
-                <td className="py-6 text-center text-3xl loss-text tabular-nums">{r.losses}</td>
-                <td className="pr-10 py-6 text-right font-mono text-3xl text-slate-300 tabular-nums">
-                  {Math.round((r.wins / r.played) * 100)}%
+                <td className="py-4 text-center text-2xl text-slate-400 tabular-nums">{r.total}</td>
+                <td className="py-4 text-center text-2xl win-text font-bold tabular-nums">{r.wins}</td>
+                <td className="py-4 text-center text-2xl loss-text tabular-nums">{r.losses}</td>
+                <td className="py-4 text-center font-mono text-2xl text-slate-300 tabular-nums">
+                  {Math.round(r.winRate * 100)}%
+                </td>
+                <td className="py-4 text-center font-mono text-2xl tabular-nums">
+                  {r.maxWin > 0
+                    ? <span className="win-text">W{r.maxWin}</span>
+                    : <span className="text-slate-700">—</span>}
+                </td>
+                <td className="py-4 text-center text-2xl text-slate-300 tabular-nums">
+                  {r.comebacks > 0 ? r.comebacks : <span className="text-slate-700">—</span>}
+                </td>
+                <td className="pr-10 py-4">
+                  <div className="flex justify-end">
+                    <LastTenBadges results={r.lastTen} />
+                  </div>
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
+                <td colSpan={9} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
               </tr>
             )}
           </tbody>
