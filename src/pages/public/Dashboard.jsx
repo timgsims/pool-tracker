@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { buildDisplayNames } from '../../lib/nameUtils'
 import { computeEloRatings, buildEloStandings } from '../../lib/eloUtils'
@@ -130,67 +130,6 @@ function useClock() {
 }
 
 // ─── Bo3 views ────────────────────────────────────────────────────────────────
-
-function DayStatsView({ todayMatches, nameMap }) {
-  const clock = useClock()
-
-  const playerStats = {}
-  for (const m of todayMatches) {
-    if (!m.winner_id) continue
-    const loserId = m.winner_id === m.player1_id ? m.player2_id : m.player1_id
-    for (const id of [m.winner_id, loserId]) {
-      if (!playerStats[id]) playerStats[id] = { wins: 0, losses: 0 }
-    }
-    playerStats[m.winner_id].wins++
-    playerStats[loserId].losses++
-  }
-  const rows = Object.entries(playerStats)
-    .map(([id, s]) => ({ id, ...s, played: s.wins + s.losses }))
-    .sort((a, b) => b.wins - a.wins || b.played - a.played)
-
-  return (
-    <div className="h-full p-16 flex flex-col">
-      <ViewHeader title="Today's Matches" subtitle="Daily Stats" clock={clock} />
-      <div className="grid grid-cols-4 gap-6 flex-1">
-        <div className="card p-8 flex flex-col">
-          <p className="text-slate-500 text-base uppercase tracking-widest font-semibold">Total Played</p>
-          <p className="text-8xl font-bold text-slate-100 mt-auto tabular-nums">{todayMatches.length}</p>
-        </div>
-        {rows.slice(0, 3).map(p => (
-          <div key={p.id} className="card p-8 flex flex-col">
-            <p className="text-slate-500 text-base uppercase tracking-widest font-semibold truncate">{nameMap[p.id] ?? p.id}</p>
-            <div className="mt-auto">
-              <p className="text-8xl font-bold text-pool-accent tabular-nums">
-                {p.wins}<span className="text-slate-500 text-5xl">W</span>
-              </p>
-              <p className="text-slate-500 text-2xl mt-1">{p.losses}L · {p.played} played</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      {rows.length > 3 && (
-        <div className="grid grid-cols-4 gap-6 mt-6">
-          {rows.slice(3).map(p => (
-            <div key={p.id} className="card p-6 flex flex-col">
-              <p className="text-slate-500 text-sm uppercase tracking-widest font-semibold truncate">{nameMap[p.id] ?? p.id}</p>
-              <div className="mt-auto">
-                <p className="text-5xl font-bold text-pool-accent tabular-nums">
-                  {p.wins}<span className="text-slate-500 text-3xl">W</span>
-                </p>
-                <p className="text-slate-500 text-lg">{p.losses}L</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {todayMatches.length === 0 && (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-slate-700 text-3xl">No matches recorded today yet</p>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function RecentResultsView({ matches, nameMap, avatarMap }) {
   const clock = useClock()
@@ -666,6 +605,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [currentView, setCurrentView] = useState(0)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const numViewsRef = useRef(3)
 
   const loadData = useCallback(async () => {
     const { data: cfg } = await supabase
@@ -737,7 +677,7 @@ export default function Dashboard() {
   }, [loadData])
 
   useEffect(() => {
-    const t = setInterval(() => setCurrentView(v => (v + 1) % 4), SLIDE_MS)
+    const t = setInterval(() => setCurrentView(v => (v + 1) % numViewsRef.current), SLIDE_MS)
     return () => clearInterval(t)
   }, [])
 
@@ -752,7 +692,6 @@ export default function Dashboard() {
   const isTournamentMisconfig = data.mode === 'tournament' && !data.tournament
 
   const bo3Views = data.mode === 'bo3' ? [
-    <DayStatsView key="day-stats" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
     <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
     <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} standings={data.standings} />,
     <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} playerSeasonStats={data.playerSeasonStats} avatarMap={data.avatarMap} />,
@@ -766,9 +705,10 @@ export default function Dashboard() {
   ] : null
 
   const views = bo3Views ?? tournamentViews ?? []
+  numViewsRef.current = views.length
 
   const viewNames = data.mode === 'bo3'
-    ? ["Today's Stats", "Recent Results", "Day Standings", "Season Leaderboard"]
+    ? ["Recent Results", "Day Standings", "Season Leaderboard"]
     : ["Bracket / Draw", "Recent Results", "Standings", "Player Breakdown"]
 
   const isTest = import.meta.env.VITE_ENV_NAME === 'test'
@@ -790,10 +730,13 @@ export default function Dashboard() {
           <div className="flex-1 overflow-hidden relative">
             <div
               className="flex h-full transition-transform duration-700 ease-in-out"
-              style={{ transform: `translateX(-${currentView * 25}%)`, width: '400%' }}
+              style={{
+                transform: `translateX(-${currentView * (100 / views.length)}%)`,
+                width: `${views.length * 100}%`,
+              }}
             >
               {views.map((view, i) => (
-                <div key={i} className="h-full" style={{ width: '25%' }}>
+                <div key={i} className="h-full" style={{ width: `${100 / views.length}%` }}>
                   {view}
                 </div>
               ))}
