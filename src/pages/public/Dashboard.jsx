@@ -110,7 +110,10 @@ function ViewHeader({ title, subtitle, clock }) {
         <h2 className="text-5xl font-bold text-slate-100 leading-tight">{title}</h2>
       </div>
       {clock && (
-        <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        <div className="text-right">
+          <p className="text-slate-600 text-xs font-semibold uppercase tracking-widest mb-1">Current Time</p>
+          <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        </div>
       )}
     </div>
   )
@@ -369,7 +372,10 @@ function TournamentStructureView({ tournament, matches, rounds, nameMap }) {
           ) : (
             <span className="badge-gray text-xl px-5 py-2">In Progress</span>
           )}
-          <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+          <div className="text-right">
+            <p className="text-slate-600 text-xs font-semibold uppercase tracking-widest mb-1">Current Time</p>
+            <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+          </div>
         </div>
       </div>
 
@@ -446,7 +452,10 @@ function TournamentResultsView({ tournament, matches, rounds, nameMap, avatarMap
           <p className="text-pool-accent text-sm font-bold tracking-widest uppercase mb-1">{tournament.name}</p>
           <h2 className="text-5xl font-bold text-slate-100">Recent Results</h2>
         </div>
-        <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        <div className="text-right">
+          <p className="text-slate-600 text-xs font-semibold uppercase tracking-widest mb-1">Current Time</p>
+          <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4 flex-1 content-start">
         {recent.map(m => {
@@ -509,7 +518,10 @@ function TournamentStandingsView({ tournament, matches, nameMap }) {
           <p className="text-pool-accent text-sm font-bold tracking-widest uppercase mb-1">{tournament.name}</p>
           <h2 className="text-5xl font-bold text-slate-100">Standings</h2>
         </div>
-        <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        <div className="text-right">
+          <p className="text-slate-600 text-xs font-semibold uppercase tracking-widest mb-1">Current Time</p>
+          <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        </div>
       </div>
       <div className="card overflow-hidden flex-1">
         <table className="w-full">
@@ -567,7 +579,10 @@ function TournamentBreakdownView({ tournament, matches, nameMap }) {
           <p className="text-pool-accent text-sm font-bold tracking-widest uppercase mb-1">{tournament.name}</p>
           <h2 className="text-5xl font-bold text-slate-100">Player Breakdown</h2>
         </div>
-        <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        <div className="text-right">
+          <p className="text-slate-600 text-xs font-semibold uppercase tracking-widest mb-1">Current Time</p>
+          <p className="text-slate-500 text-5xl font-bold font-mono tabular-nums">{clock}</p>
+        </div>
       </div>
       <div className="card overflow-hidden flex-1">
         <table className="w-full">
