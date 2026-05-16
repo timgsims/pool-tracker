@@ -237,10 +237,11 @@ function RecentResultsView({ matches, nameMap, avatarMap }) {
   )
 }
 
-function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
+function DayLeaderboardView({ todayMatches, nameMap, avatarMap, standings }) {
   const clock = useClock()
   const th = 'py-5 text-slate-500 text-base font-semibold uppercase tracking-widest'
 
+  const ratingMap = Object.fromEntries((standings ?? []).map(s => [s.player_id, s]))
   const playerIds = [...new Set(todayMatches.flatMap(m => [m.player1_id, m.player2_id]))]
   const rows = playerIds
     .map(id => ({ id, ...computeSeasonStats(todayMatches, id) }))
@@ -259,8 +260,9 @@ function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
               <th className={`text-center ${th} w-20`}>P</th>
               <th className={`text-center ${th} w-20`}>W</th>
               <th className={`text-center ${th} w-20`}>L</th>
-              <th className={`text-center ${th} w-24`}>W%</th>
-              <th className={`text-center ${th} w-24`}>Best</th>
+              <th className={`text-center ${th} w-28`}>W%</th>
+              <th className={`text-center ${th} w-28`}>Rating</th>
+              <th className={`text-center ${th} w-28`}>Best</th>
               <th className={`text-center ${th} w-32`}>Comebacks</th>
               <th className={`pr-10 text-right ${th}`}>
                 Today <span className="text-slate-700 font-normal normal-case tracking-normal text-sm">← recent · older →</span>
@@ -284,6 +286,9 @@ function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
                   {Math.round(r.winRate * 100)}%
                 </td>
                 <td className="py-4 text-center font-mono text-2xl tabular-nums">
+                  {(() => { const s = ratingMap[r.id]; return s ? (s.isProvisional ? <span className="text-slate-600">~{s.rating}</span> : <span className="text-slate-100">{s.rating}</span>) : <span className="text-slate-700">—</span> })()}
+                </td>
+                <td className="py-4 text-center font-mono text-2xl tabular-nums">
                   {r.maxWin > 0
                     ? <span className="win-text">W{r.maxWin}</span>
                     : <span className="text-slate-700">—</span>}
@@ -300,7 +305,7 @@ function DayLeaderboardView({ todayMatches, nameMap, avatarMap }) {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
+                <td colSpan={10} className="text-center py-20 text-slate-700 text-3xl">No matches today yet</td>
               </tr>
             )}
           </tbody>
@@ -326,9 +331,9 @@ function SeasonLeaderboardView({ standings, activeSeason, playerSeasonStats, ava
               <th className={`text-center ${th} w-20`}>P</th>
               <th className={`text-center ${th} w-20`}>W</th>
               <th className={`text-center ${th} w-20`}>L</th>
-              <th className={`text-center ${th} w-24`}>W%</th>
-              <th className={`text-right ${th} w-36`}>Rating</th>
-              <th className={`text-center ${th} w-24`}>Best</th>
+              <th className={`text-center ${th} w-28`}>W%</th>
+              <th className={`text-center ${th} w-28`}>Rating</th>
+              <th className={`text-center ${th} w-28`}>Best</th>
               <th className={`text-center ${th} w-32`}>Comebacks</th>
               <th className={`pr-10 text-right ${th}`}>
                 Last 10 <span className="text-slate-700 font-normal normal-case tracking-normal text-sm">← recent · older →</span>
@@ -355,7 +360,7 @@ function SeasonLeaderboardView({ standings, activeSeason, playerSeasonStats, ava
                   <td className="py-4 text-center font-mono text-2xl text-slate-300 tabular-nums">
                     {ps ? `${Math.round(ps.winRate * 100)}%` : '—'}
                   </td>
-                  <td className="py-4 text-right font-mono text-2xl tabular-nums pr-4">
+                  <td className="py-4 text-center font-mono text-2xl tabular-nums">
                     {s.isProvisional
                       ? <span className="text-slate-600">~{s.rating}</span>
                       : <span className="text-slate-100">{s.rating}</span>}
@@ -749,7 +754,7 @@ export default function Dashboard() {
   const bo3Views = data.mode === 'bo3' ? [
     <DayStatsView key="day-stats" todayMatches={data.todayMatches} nameMap={data.nameMap} />,
     <RecentResultsView key="recent" matches={data.recentMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
-    <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} />,
+    <DayLeaderboardView key="day-lb" todayMatches={data.todayMatches} nameMap={data.nameMap} avatarMap={data.avatarMap} standings={data.standings} />,
     <SeasonLeaderboardView key="season-lb" standings={data.standings} activeSeason={data.activeSeason} playerSeasonStats={data.playerSeasonStats} avatarMap={data.avatarMap} />,
   ] : null
 
