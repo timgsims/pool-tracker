@@ -29,7 +29,6 @@ export function computeElo(matches, referenceDate) {
   const refMs = referenceDate ? new Date(referenceDate).getTime() : Date.now()
   const ratings = {}
   const stats = {}
-  const pairDayCounts = {}
   const deltas = {}
 
   for (const m of matches) {
@@ -44,13 +43,7 @@ export function computeElo(matches, referenceDate) {
     const daysAgo = Math.max(0, (refMs - new Date(m.played_at).getTime()) / 86400000)
     const decay = timeDecay(daysAgo)
 
-    const dateStr = m.played_at.slice(0, 10)
-    const pairKey = (p1 < p2 ? `${p1}:${p2}` : `${p2}:${p1}`) + `:${dateStr}`
-    const n = (pairDayCounts[pairKey] ?? 0) + 1
-    pairDayCounts[pairKey] = n
-    const repFactor = Math.pow(0.5, n - 1)
-
-    const K = K_BASE * decay * repFactor
+    const K = K_BASE * decay
     const winner = m.winner_id
     const loser = winner === p1 ? p2 : p1
 

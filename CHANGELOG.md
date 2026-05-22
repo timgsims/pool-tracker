@@ -4,6 +4,14 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.2.0 — 2026-05-22
+
+### Changed
+- Elo rating system: removed same-day repeat match penalty — every match between the same two players in a day now counts at full K, regardless of how many times they've played that day
+- Rationale: the penalty created asymmetric unfairness in comeback scenarios (early losses at full K, later wins at a fraction), and the Elo expected-score formula already naturally limits point gains as ratings converge
+
+---
+
 ## v2.1.0 — 2026-05-22
 
 ### Added
