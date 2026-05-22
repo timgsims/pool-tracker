@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { formatDateLong, formatDateShort, timeAgo } from '../../lib/dateUtils'
 import { orderedMatch } from '../../lib/matchUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
-import { computeEloRatings } from '../../lib/eloUtils'
+import { computeElo, computeEloRatings } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import StatCard from '../../components/ui/StatCard'
 import Avatar from '../../components/ui/Avatar'
@@ -137,6 +137,7 @@ export default function PlayerProfile() {
   const [tournamentRecord, setTournamentRecord] = useState(null)
   const [eloRatings, setEloRatings] = useState({})
   const [allTimeEloRatings, setAllTimeEloRatings] = useState({})
+  const [eloDeltas, setEloDeltas] = useState({})
   const [profileView, setProfileView] = useState('season')
 
   const canUpload = isAdmin || linkedPlayerId === id
@@ -179,7 +180,7 @@ export default function PlayerProfile() {
         supabase.from('seasons').select('id, start_date, end_date, stats_available'),
 
         supabase.from('matches').select('id, played_at, player1_id, player2_id, winner_id')
-          .is('tournament_id', null).not('winner_id', 'is', null).order('played_at', { ascending: true }),
+          .not('winner_id', 'is', null).order('played_at', { ascending: true }),
       ])
 
       if (!p) { setNotFound(true); setLoading(false); return }
@@ -217,8 +218,11 @@ export default function PlayerProfile() {
       setSeasonStats(computed)
       setTrophies(wonSeasons ?? [])
       setTournamentRecord(tEntered > 0 ? { entered: tEntered, won: tWon, winRate: tWinRate } : null)
-      setEloRatings(computeEloRatings(seasonMatchesForElo))
-      setAllTimeEloRatings(computeEloRatings(allRegularMatches ?? []))
+      const { ratings: seasonElo } = computeElo(seasonMatchesForElo)
+      const { ratings: allTimeElo, deltas } = computeElo(allRegularMatches ?? [])
+      setEloRatings(seasonElo)
+      setAllTimeEloRatings(allTimeElo)
+      setEloDeltas(deltas)
       setAllMatches(matches)
       setNameMap(buildDisplayNames(allPlayers ?? []))
       setLoading(false)
@@ -714,6 +718,9 @@ export default function PlayerProfile() {
               const isBo3 = m.format === 'best_of_3'
               const leftGames = isBo3 ? gameSeq(m.games, left?.id) : null
               const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
+              const md = eloDeltas[m.id]
+              const leftDelta = md?.[left?.id]
+              const rightDelta = md?.[right?.id]
               return (
                 <div key={m.id} className="card px-5 py-4">
                   {m.winner && (
@@ -736,10 +743,25 @@ export default function PlayerProfile() {
                       {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                     </div>
                   </div>
-                  <div className="flex items-center justify-center gap-3 text-xs text-slate-600 mt-2">
-                    <span>{formatDateLong(m.played_at)}</span>
-                    <span>·</span>
-                    <span>{m.tournament
+                  {leftDelta !== undefined && (
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <div className="flex-1 flex justify-end">
+                        <span className={`text-xs font-bold tabular-nums ${leftDelta > 0 ? 'win-text' : leftDelta < 0 ? 'loss-text' : 'text-slate-500'}`}>
+                          {leftDelta > 0 ? `+${leftDelta}` : leftDelta}
+                        </span>
+                      </div>
+                      <span className="text-slate-600 text-xs whitespace-nowrap shrink-0">ELO RANK CHANGE</span>
+                      <div className="flex-1">
+                        <span className={`text-xs font-bold tabular-nums ${rightDelta > 0 ? 'win-text' : rightDelta < 0 ? 'loss-text' : 'text-slate-500'}`}>
+                          {rightDelta > 0 ? `+${rightDelta}` : rightDelta}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center text-xs text-slate-600 mt-2">
+                    <span className="flex-1 text-right">{formatDateLong(m.played_at)}</span>
+                    <span className="w-6 shrink-0 text-center">·</span>
+                    <span className="flex-1">{m.tournament
                       ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
                       : (isBo3 ? 'Best of 3' : 'Single game')
                     }</span>

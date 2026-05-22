@@ -13,25 +13,24 @@ function expectedScore(rA, rB) {
 }
 
 /**
- * Compute Elo ratings from a chronologically ordered match list.
+ * Compute Elo ratings and per-match deltas from a chronologically ordered match list.
  *
- * Modifications vs bare Elo:
- *   - K is multiplied by a time-decay factor (half-life 45 days, floor 0.25)
- *   - K is multiplied by 0.5^(n-1) for the nth match between the same two players
- *     on the same calendar day, to penalise same-day farming
+ * Includes all matches passed in — callers are responsible for filtering (e.g. by season).
+ * Tournament matches count toward Elo.
  *
  * @param {Array}       matches       Sorted ASC by played_at. Requires player1_id,
- *                                    player2_id, winner_id, played_at.
+ *                                    player2_id, winner_id, played_at, id.
  * @param {Date|string} [referenceDate] Decay reference point. Defaults to now.
- *                                    Pass season.end_date when archiving so the
- *                                    snapshot is deterministic.
- * @returns {Object} playerId -> { rating, wins, losses, matchesPlayed, isProvisional }
+ * @returns {{ ratings: Object, deltas: Object }}
+ *   ratings: playerId -> { rating, wins, losses, matchesPlayed, isProvisional }
+ *   deltas:  matchId  -> { [winnerId]: +N, [loserId]: -N }
  */
-export function computeEloRatings(matches, referenceDate) {
+export function computeElo(matches, referenceDate) {
   const refMs = referenceDate ? new Date(referenceDate).getTime() : Date.now()
   const ratings = {}
   const stats = {}
   const pairDayCounts = {}
+  const deltas = {}
 
   for (const m of matches) {
     if (!m.winner_id || !m.player1_id || !m.player2_id || m.player1_id === m.player2_id) continue
@@ -61,15 +60,17 @@ export function computeEloRatings(matches, referenceDate) {
     ratings[winner] += delta
     ratings[loser] -= delta
 
+    deltas[m.id] = { [winner]: Math.round(delta), [loser]: -Math.round(delta) }
+
     stats[winner].wins++
     stats[winner].played++
     stats[loser].losses++
     stats[loser].played++
   }
 
-  const result = {}
+  const ratingResult = {}
   for (const pid of Object.keys(ratings)) {
-    result[pid] = {
+    ratingResult[pid] = {
       rating: Math.round(ratings[pid]),
       wins: stats[pid].wins,
       losses: stats[pid].losses,
@@ -77,14 +78,20 @@ export function computeEloRatings(matches, referenceDate) {
       isProvisional: stats[pid].played < PROVISIONAL_THRESHOLD,
     }
   }
-  return result
+
+  return { ratings: ratingResult, deltas }
+}
+
+/** Backward-compatible wrapper — returns ratings only. */
+export function computeEloRatings(matches, referenceDate) {
+  return computeElo(matches, referenceDate).ratings
 }
 
 /**
- * Convert a computeEloRatings result into a sorted standings array.
+ * Convert a computeElo ratings result into a sorted standings array.
  * Non-provisional players first (rating DESC), then provisional (rating DESC).
  *
- * @param {Object} eloRatings  Return value of computeEloRatings.
+ * @param {Object} eloRatings  ratings from computeElo or computeEloRatings.
  * @param {Array}  playerList  Array of { id, name } objects.
  * @returns {Array} Standings rows with player_id, player_name, rating, wins,
  *                  losses, matchesPlayed, isProvisional.

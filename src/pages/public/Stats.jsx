@@ -391,7 +391,7 @@ export default function Stats() {
             <div className="card overflow-x-auto">
               <table className="table-base min-w-full">
                 <colgroup>
-                  <col />
+                  <col className="w-[7.5rem]" />
                   <col className="w-10" />
                   <col className="w-10" />
                   <col className="w-10" />
@@ -424,14 +424,16 @@ export default function Stats() {
 
                     return (
                       <tr key={p.id}>
-                        <td className="pl-5 sticky left-0 bg-pool-card z-10">
-                          <Link
-                            to={`/player/${p.id}`}
-                            className="flex items-center gap-2 font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                          >
-                            <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                            {n(p.id)}
-                          </Link>
+                        <td className="pl-5 pr-2 font-semibold text-slate-200 sticky left-0 bg-pool-card z-10">
+                          <div className="w-24 overflow-hidden">
+                            <Link
+                              to={`/player/${p.id}`}
+                              className="flex items-center gap-2 hover:text-pool-accent transition-colors min-w-0"
+                            >
+                              <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                              <span className="truncate">{n(p.id)}</span>
+                            </Link>
+                          </div>
                         </td>
                         <td className="text-center text-slate-300 tabular-nums text-sm">{s.total}</td>
                         <td className="text-center win-text tabular-nums">{s.wins}</td>

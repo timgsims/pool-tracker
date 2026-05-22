@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { orderedMatch } from '../../lib/matchUtils'
 import { formatDateShort } from '../../lib/dateUtils'
 import { buildDisplayNames } from '../../lib/nameUtils'
-import { computeEloRatings, buildEloStandings, PROVISIONAL_THRESHOLD } from '../../lib/eloUtils'
+import { computeElo, buildEloStandings, PROVISIONAL_THRESHOLD } from '../../lib/eloUtils'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import Avatar from '../../components/ui/Avatar'
@@ -515,6 +515,7 @@ export default function Home() {
   const [playerStreaks, setPlayerStreaks] = useState({})
   const [playerAvatars, setPlayerAvatars] = useState({})
   const [nameMap, setNameMap] = useState({})
+  const [eloDeltas, setEloDeltas] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -554,7 +555,8 @@ export default function Home() {
       const nonTournamentMatches = allTimeMatches.filter(m => !m.tournament_id)
 
       // Filter to active season date range (or all-time if no active season)
-      let seasonMatches
+      let seasonMatches      // non-tournament: for H2H, streaks, graph
+      let allSeasonMatches   // all (incl. tournament): for Elo
       if (season) {
         const from = new Date(season.start_date + 'T00:00:00')
         const to = new Date(season.end_date + 'T23:59:59')
@@ -562,14 +564,20 @@ export default function Home() {
           const d = new Date(m.played_at)
           return d >= from && d <= to
         })
+        allSeasonMatches = allTimeMatches.filter(m => {
+          const d = new Date(m.played_at)
+          return d >= from && d <= to
+        })
       } else {
         seasonMatches = nonTournamentMatches
+        allSeasonMatches = allTimeMatches
       }
 
-      // Ascending for Elo computation and graph
       const seasonMatchesAsc = [...seasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
+      const allSeasonMatchesAsc = [...allSeasonMatches].sort((a, b) => a.played_at.localeCompare(b.played_at))
 
-      const eloRatings = computeEloRatings(seasonMatchesAsc)
+      // Elo includes tournament matches
+      const { ratings: eloRatings, deltas } = computeElo(allSeasonMatchesAsc)
       const sorted = buildEloStandings(eloRatings, playerList)
       const streaks = computeAllStreaks(seasonMatches, sorted.map(s => s.player_id))
       const avatars = Object.fromEntries(playerList.map(p => [p.id, p.avatar_url]))
@@ -588,6 +596,7 @@ export default function Home() {
       setPlayerStreaks(streaks)
       setPlayerAvatars(avatars)
       setNameMap(names)
+      setEloDeltas(deltas)
       setLoading(false)
     }
     load()
@@ -653,6 +662,9 @@ export default function Home() {
                 const isBo3 = m.format === 'best_of_3'
                 const leftGames = isBo3 ? gameSeq(m.games, left?.id) : null
                 const rightGames = isBo3 ? gameSeq(m.games, right?.id) : null
+                const md = eloDeltas[m.id]
+                const leftDelta = md?.[left?.id]
+                const rightDelta = md?.[right?.id]
                 return (
                   <div key={m.id} className="card px-5 py-4">
                     {m.winner && (
@@ -675,10 +687,25 @@ export default function Home() {
                         {rightGames && <span className="text-slate-500 text-xs shrink-0">({rightGames})</span>}
                       </div>
                     </div>
-                    <div className="flex items-center justify-center gap-3 text-xs text-slate-600 mt-2">
-                      <span>{formatDate(m.played_at)}</span>
-                      <span>·</span>
-                      <span>{m.tournament_id
+                    {leftDelta !== undefined && (
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <div className="flex-1 flex justify-end">
+                          <span className={`text-xs font-bold tabular-nums ${leftDelta > 0 ? 'win-text' : leftDelta < 0 ? 'loss-text' : 'text-slate-500'}`}>
+                            {leftDelta > 0 ? `+${leftDelta}` : leftDelta}
+                          </span>
+                        </div>
+                        <span className="text-slate-600 text-xs whitespace-nowrap shrink-0">ELO RANK CHANGE</span>
+                        <div className="flex-1">
+                          <span className={`text-xs font-bold tabular-nums ${rightDelta > 0 ? 'win-text' : rightDelta < 0 ? 'loss-text' : 'text-slate-500'}`}>
+                            {rightDelta > 0 ? `+${rightDelta}` : rightDelta}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center text-xs text-slate-600 mt-2">
+                      <span className="flex-1 text-right">{formatDate(m.played_at)}</span>
+                      <span className="w-6 shrink-0 text-center">·</span>
+                      <span className="flex-1">{m.tournament_id
                         ? (isBo3 ? 'Tournament · Bo3' : 'Tournament · Single game')
                         : (isBo3 ? 'Best of 3' : 'Single game')
                       }</span>

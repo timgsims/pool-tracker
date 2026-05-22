@@ -4,6 +4,22 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.1.0 — 2026-05-22
+
+### Added
+- Match cards on Leaderboard Recent Results, All Matches, and Player Profile now show each player's Elo rating change (+N / −N) between the players row and the date row, aligned under their respective player
+- "ELO RANK CHANGE" label centred between the two delta values; date/format dot now fixed-width centred for visual symmetry
+
+### Changed
+- Tournament matches now count toward Elo ratings (previously only regular Bo3 matches were included)
+- `computeElo()` function added to eloUtils.js returning both ratings and per-match deltas; `computeEloRatings()` kept as a backward-compatible wrapper
+
+### Fixed
+- Safari PWA: `datetime-local` input no longer overflows its container (`-webkit-appearance: none` + explicit `height` added to base layer)
+- Bo3 Stats and Tournament Stats: Player Breakdown sticky name column now renders correctly on mobile (column width anchored, `w-24 overflow-hidden` wrapper matches Head to Head table pattern)
+
+---
+
 ## v2.0.3 — 2026-05-16
 
 ### Changed
