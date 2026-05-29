@@ -300,7 +300,9 @@ export default function PlayerProfile() {
     : longestStreaks
 
   const lastTen = scopedMatches.filter(m => m.format === 'best_of_3' && m.winner).slice(0, 10).map(m => m.winner.id === id ? 'W' : 'L')
-  const favOpponent = h2h.filter(o => o.wins + o.losses >= 3).sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
+  const qualified = h2h.filter(o => o.wins + o.losses >= 3)
+  const favOpponent = [...qualified].sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)))[0] ?? null
+  const rival = [...qualified].sort((a, b) => (b.losses / (b.wins + b.losses)) - (a.losses / (a.wins + a.losses)))[0] ?? null
   const recentMatches = scopedMatches.slice(0, 10)
   const hasMonthlyActivity = monthlyForm.some(m => m.wins + m.losses > 0)
 
@@ -537,34 +539,67 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Favourite opponent */}
-      {favOpponent && (
-        <div>
-          <p className="section-header">Favourite Opponent</p>
-          <p className="text-slate-600 text-xs -mt-2 mb-3">Best win rate against a single opponent (min. 3 matches)</p>
-          <div className="card p-4 flex items-center justify-between gap-4">
+      {/* Favourite opponent + Rival */}
+      {(favOpponent || rival) && (
+        <div className="grid grid-cols-2 gap-3">
+          {favOpponent && (
             <div>
-              <Link
-                to={`/player/${favOpponent.id}`}
-                className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-              >
-                {nameMap[favOpponent.id] ?? favOpponent.name}
-              </Link>
-              <p className="text-slate-500 text-xs mt-0.5">
-                {favOpponent.wins + favOpponent.losses} matches played
-              </p>
+              <p className="section-header">Favourite Opponent</p>
+              <p className="text-slate-600 text-xs -mt-2 mb-3">Best win rate against a single opponent (min. 3 matches)</p>
+              <div className="card p-4 flex items-center justify-between gap-4">
+                <div>
+                  <Link
+                    to={`/player/${favOpponent.id}`}
+                    className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+                  >
+                    {nameMap[favOpponent.id] ?? favOpponent.name}
+                  </Link>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    {favOpponent.wins + favOpponent.losses} matches played
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-mono text-sm font-semibold">
+                    <span className="win-text">{favOpponent.wins}W</span>
+                    <span className="text-slate-600 mx-1">–</span>
+                    <span className="loss-text">{favOpponent.losses}L</span>
+                  </p>
+                  <p className="text-pool-accent font-bold text-lg tabular-nums">
+                    {Math.round((favOpponent.wins / (favOpponent.wins + favOpponent.losses)) * 100)}%
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="font-mono text-sm font-semibold">
-                <span className="win-text">{favOpponent.wins}W</span>
-                <span className="text-slate-600 mx-1">–</span>
-                <span className="loss-text">{favOpponent.losses}L</span>
-              </p>
-              <p className="text-pool-accent font-bold text-lg tabular-nums">
-                {Math.round((favOpponent.wins / (favOpponent.wins + favOpponent.losses)) * 100)}%
-              </p>
+          )}
+          {rival && (
+            <div>
+              <p className="section-header">Rival</p>
+              <p className="text-slate-600 text-xs -mt-2 mb-3">Opponent with the best win rate against this player (min. 3 matches)</p>
+              <div className="card p-4 flex items-center justify-between gap-4">
+                <div>
+                  <Link
+                    to={`/player/${rival.id}`}
+                    className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+                  >
+                    {nameMap[rival.id] ?? rival.name}
+                  </Link>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    {rival.wins + rival.losses} matches played
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-mono text-sm font-semibold">
+                    <span className="win-text">{rival.wins}W</span>
+                    <span className="text-slate-600 mx-1">–</span>
+                    <span className="loss-text">{rival.losses}L</span>
+                  </p>
+                  <p className="loss-text font-bold text-lg tabular-nums">
+                    {Math.round((rival.losses / (rival.wins + rival.losses)) * 100)}% to them
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
