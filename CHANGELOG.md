@@ -4,6 +4,16 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.3.0 — 2026-05-17
+
+### Added
+- Player Profile: Rival card — shows the opponent with the best win rate against the player (min. 3 matches), displayed below Favourite Opponent in both season and all-time views
+
+### Dev
+- Sync script: `user_roles` is now saved and restored around the TRUNCATE CASCADE, so dev admin access survives every live→dev data sync
+
+---
+
 ## v2.2.0 — 2026-05-22
 
 ### Changed
