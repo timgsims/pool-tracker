@@ -539,67 +539,65 @@ export default function PlayerProfile() {
         </div>
       )}
 
-      {/* Favourite opponent + Rival */}
-      {(favOpponent || rival) && (
-        <div className="grid grid-cols-2 gap-3">
-          {favOpponent && (
+      {/* Favourite opponent */}
+      {favOpponent && (
+        <div>
+          <p className="section-header">Favourite Opponent</p>
+          <p className="text-slate-600 text-xs -mt-2 mb-3">Best win rate against a single opponent (min. 3 matches)</p>
+          <div className="card p-4 flex items-center justify-between gap-4">
             <div>
-              <p className="section-header">Favourite Opponent</p>
-              <p className="text-slate-600 text-xs -mt-2 mb-3">Best win rate against a single opponent (min. 3 matches)</p>
-              <div className="card p-4 flex items-center justify-between gap-4">
-                <div>
-                  <Link
-                    to={`/player/${favOpponent.id}`}
-                    className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                  >
-                    {nameMap[favOpponent.id] ?? favOpponent.name}
-                  </Link>
-                  <p className="text-slate-500 text-xs mt-0.5">
-                    {favOpponent.wins + favOpponent.losses} matches played
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-mono text-sm font-semibold">
-                    <span className="win-text">{favOpponent.wins}W</span>
-                    <span className="text-slate-600 mx-1">–</span>
-                    <span className="loss-text">{favOpponent.losses}L</span>
-                  </p>
-                  <p className="text-pool-accent font-bold text-lg tabular-nums">
-                    {Math.round((favOpponent.wins / (favOpponent.wins + favOpponent.losses)) * 100)}%
-                  </p>
-                </div>
-              </div>
+              <Link
+                to={`/player/${favOpponent.id}`}
+                className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+              >
+                {nameMap[favOpponent.id] ?? favOpponent.name}
+              </Link>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {favOpponent.wins + favOpponent.losses} matches played
+              </p>
             </div>
-          )}
-          {rival && (
+            <div className="text-right shrink-0">
+              <p className="font-mono text-sm font-semibold">
+                <span className="win-text">{favOpponent.wins}W</span>
+                <span className="text-slate-600 mx-1">–</span>
+                <span className="loss-text">{favOpponent.losses}L</span>
+              </p>
+              <p className="text-pool-accent font-bold text-lg tabular-nums">
+                {Math.round((favOpponent.wins / (favOpponent.wins + favOpponent.losses)) * 100)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rival */}
+      {rival && (
+        <div>
+          <p className="section-header">Rival</p>
+          <p className="text-slate-600 text-xs -mt-2 mb-3">Opponent with the best win rate against this player (min. 3 matches)</p>
+          <div className="card p-4 flex items-center justify-between gap-4">
             <div>
-              <p className="section-header">Rival</p>
-              <p className="text-slate-600 text-xs -mt-2 mb-3">Opponent with the best win rate against this player (min. 3 matches)</p>
-              <div className="card p-4 flex items-center justify-between gap-4">
-                <div>
-                  <Link
-                    to={`/player/${rival.id}`}
-                    className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
-                  >
-                    {nameMap[rival.id] ?? rival.name}
-                  </Link>
-                  <p className="text-slate-500 text-xs mt-0.5">
-                    {rival.wins + rival.losses} matches played
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="font-mono text-sm font-semibold">
-                    <span className="win-text">{rival.wins}W</span>
-                    <span className="text-slate-600 mx-1">–</span>
-                    <span className="loss-text">{rival.losses}L</span>
-                  </p>
-                  <p className="loss-text font-bold text-lg tabular-nums">
-                    {Math.round((rival.losses / (rival.wins + rival.losses)) * 100)}% to them
-                  </p>
-                </div>
-              </div>
+              <Link
+                to={`/player/${rival.id}`}
+                className="font-semibold text-slate-100 hover:text-pool-accent transition-colors"
+              >
+                {nameMap[rival.id] ?? rival.name}
+              </Link>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {rival.wins + rival.losses} matches played
+              </p>
             </div>
-          )}
+            <div className="text-right shrink-0">
+              <p className="font-mono text-sm font-semibold">
+                <span className="win-text">{rival.wins}W</span>
+                <span className="text-slate-600 mx-1">–</span>
+                <span className="loss-text">{rival.losses}L</span>
+              </p>
+              <p className="loss-text font-bold text-lg tabular-nums">
+                {Math.round((rival.losses / (rival.wins + rival.losses)) * 100)}% to them
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
