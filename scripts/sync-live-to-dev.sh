@@ -35,7 +35,10 @@ pg_dump "$LIVE_DB_URI" \
   -t public.season_rankings \
   -f "$DUMP_FILE"
 
-echo "→ Clearing dev data (preserving user_roles)..."
+echo "→ Saving dev user_roles..."
+USER_ROLES_BACKUP=$(psql "$TEST_DB_URI" -t -A -F $'\t' -c "SELECT user_id, role, player_id FROM public.user_roles;")
+
+echo "→ Clearing dev data..."
 psql "$TEST_DB_URI" -c "
 TRUNCATE
   public.games,
@@ -56,13 +59,23 @@ psql "$TEST_DB_URI" \
   -f "$DUMP_FILE" \
   -c "SET session_replication_role = DEFAULT;"
 
+echo "→ Restoring dev user_roles..."
+while IFS=$'\t' read -r uid role pid; do
+  [[ -z "$uid" ]] && continue
+  psql "$TEST_DB_URI" -c "
+    INSERT INTO public.user_roles (user_id, role, player_id)
+    VALUES ('$uid', '$role', $([ "$pid" = "" ] && echo "NULL" || echo "'$pid'"))
+    ON CONFLICT (user_id) DO UPDATE SET role = '$role', player_id = $([ "$pid" = "" ] && echo "NULL" || echo "'$pid'");
+  " -q
+done <<< "$USER_ROLES_BACKUP"
+
 echo "→ Verifying row counts..."
 psql "$TEST_DB_URI" -c "
 SELECT 'players'     AS tbl, COUNT(*) FROM public.players
 UNION ALL SELECT 'seasons',  COUNT(*) FROM public.seasons
 UNION ALL SELECT 'matches',  COUNT(*) FROM public.matches
 UNION ALL SELECT 'games',    COUNT(*) FROM public.games
-UNION ALL SELECT 'user_roles (untouched)', COUNT(*) FROM public.user_roles;
+UNION ALL SELECT 'user_roles (restored)', COUNT(*) FROM public.user_roles;
 "
 
 echo "✓ Dev database refreshed from live."
