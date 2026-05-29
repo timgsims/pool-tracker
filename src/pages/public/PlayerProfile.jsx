@@ -594,7 +594,7 @@ export default function PlayerProfile() {
                 <span className="loss-text">{rival.losses}L</span>
               </p>
               <p className="loss-text font-bold text-lg tabular-nums">
-                {Math.round((rival.losses / (rival.wins + rival.losses)) * 100)}% to them
+                {Math.round((rival.losses / (rival.wins + rival.losses)) * 100)}%
               </p>
             </div>
           </div>
