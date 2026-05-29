@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import UpdatePrompt from './components/ui/UpdatePrompt'
 
 // Public pages
 import Home from './pages/public/Home'
@@ -60,6 +61,7 @@ function ProfileSetupGuard({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <UpdatePrompt />
       <HashRouter>
         <ProfileSetupGuard>
           <Routes>
