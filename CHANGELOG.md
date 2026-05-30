@@ -4,14 +4,14 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
-## v2.3.1 — 2026-05-17
+## v2.3.1 — 2026-05-30
 
 ### Fixed
 - PWA: "New version available" banner now appears when a new build is deployed — tap "Update now" to reload immediately instead of waiting for the service worker to refresh on its own
 
 ---
 
-## v2.3.0 — 2026-05-17
+## v2.3.0 — 2026-05-30
 
 ### Added
 - Player Profile: Rival card — shows the opponent with the best win rate against the player (min. 3 matches), displayed below Favourite Opponent in both season and all-time views
