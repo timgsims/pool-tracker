@@ -12,3 +12,17 @@ dist
 # Database backups — kept locally only
 backups/*.dump
 backups/tmp/
+
+# Testing artifacts kept alongside the code in OneDrive (not committed)
+/bugs screenshots/
+/*.mp4
+/*.docx
+/*.xlsx
+/*.csv
+/8.png
+/icon.png
+/icon-test.png
+/icon-white-bg.png
+/logo-white.png
+/logo-white-v2.png
+/pool-tracker dev notes.txt
