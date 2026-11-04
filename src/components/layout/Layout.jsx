@@ -3,19 +3,8 @@ import Navbar from './Navbar'
 
 const isTest = import.meta.env.VITE_ENV_NAME === 'test'
 
+// The dev build's orange icons are swapped in at build time (devIcons in vite.config.js)
 if (isTest) {
-  const base = import.meta.env.BASE_URL
-  // Remove existing icon links and insert fresh ones so browsers don't ignore the change
-  document.querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']").forEach(el => el.remove())
-  const favicon = document.createElement('link')
-  favicon.rel = 'icon'
-  favicon.type = 'image/png'
-  favicon.href = `${base}icon-test.png?v=test`
-  document.head.appendChild(favicon)
-  const touchIcon = document.createElement('link')
-  touchIcon.rel = 'apple-touch-icon'
-  touchIcon.href = `${base}icon-test.png?v=test`
-  document.head.appendChild(touchIcon)
   document.title = 'DEV 8-Ball Pool Tracker'
 }
 

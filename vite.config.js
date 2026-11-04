@@ -1,6 +1,16 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { cpSync } from 'fs'
+
+// Dev builds (--mode development, VITE_ENV_NAME=test) get the orange icons from
+// public-dev/ in place of the green ones, so the two installed apps look different.
+const devIcons = (isTest) => ({
+  name: 'dev-icons',
+  closeBundle() {
+    if (isTest) cpSync('public-dev', 'dist', { recursive: true })
+  },
+})
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -11,6 +21,7 @@ export default defineConfig(({ mode }) => {
     server: { host: true },
     plugins: [
       react(),
+      devIcons(env.VITE_ENV_NAME === 'test'),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icons/*.png'],

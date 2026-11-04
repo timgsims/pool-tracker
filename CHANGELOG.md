@@ -4,6 +4,13 @@ All notable changes to Pool Tracker are recorded here, grouped by release.
 
 ---
 
+## v2.3.2 — 2026-11-04
+
+### Changed
+- New app icon: the 8-ball on green felt, so it stands out on a dark home screen. On iPhone, delete Pool Tracker from the home screen and add it again to see it
+
+---
+
 ## v2.3.1 — 2026-05-30
 
 ### Fixed
