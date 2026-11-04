@@ -1,4 +1,4 @@
-# Deploy dev build to sentinel (dev.pool.simsey.co.nz)
+# Deploy dev build to sentinel (pooldev.simsey.co.nz)
 # Uses .env.development (test Supabase instance)
 
 Set-Location $PSScriptRoot\..
@@ -14,4 +14,4 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Deploy failed" -ForegroundColor Red; exit
 
 ssh sentinel-admin@100.69.34.6 "docker exec pool-tracker-dev nginx -s reload"
 
-Write-Host "Done -> https://dev.pool.simsey.co.nz" -ForegroundColor Green
+Write-Host "Done -> https://pooldev.simsey.co.nz" -ForegroundColor Green
